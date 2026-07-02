@@ -91,6 +91,36 @@
         white-space: nowrap;
       }
 
+      .amount-stepper {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .amount-step {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        color: var(--text);
+        font-size: 1.1rem;
+        font-weight: 700;
+        line-height: 1;
+        cursor: pointer;
+        flex-shrink: 0;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .amount-step:hover {
+        background: var(--border);
+      }
+      .amount-step:active {
+        background: var(--accent);
+        border-color: var(--accent);
+        color: #fff;
+      }
+
       .amount-field {
         display: flex;
         align-items: center;
@@ -461,6 +491,15 @@
           border-radius: 8px;
           padding: 10px;
         }
+        .amount-stepper {
+          width: 100%;
+          justify-content: center;
+        }
+        .amount-step {
+          width: 44px;
+          height: 44px;
+          font-size: 1.35rem;
+        }
         .amount-wrap input {
           width: 120px;
           font-size: 1.1rem;
@@ -521,16 +560,34 @@
       <div class="topbar">
         <div class="amount-wrap">
           <label for="totalAmount">投入</label>
-          <div class="amount-field">
-            <span class="amount-prefix">¥</span>
-            <input
-              type="text"
-              id="totalAmount"
-              inputmode="numeric"
-              value="120000"
-              autocomplete="off"
-            />
-            <span class="amount-suffix">元</span>
+          <div class="amount-stepper">
+            <button
+              type="button"
+              class="amount-step"
+              id="amountMinus"
+              aria-label="减少1000"
+            >
+              −
+            </button>
+            <div class="amount-field">
+              <span class="amount-prefix">¥</span>
+              <input
+                type="text"
+                id="totalAmount"
+                inputmode="numeric"
+                value="120000"
+                autocomplete="off"
+              />
+              <span class="amount-suffix">元</span>
+            </div>
+            <button
+              type="button"
+              class="amount-step"
+              id="amountPlus"
+              aria-label="增加1000"
+            >
+              +
+            </button>
           </div>
           <div class="amount-live" id="amountLive">= 12.00 万 · ¥120,000</div>
         </div>
@@ -702,6 +759,23 @@
 
       function getTotalAmount() {
         return parseAmount(document.getElementById("totalAmount").value);
+      }
+
+      const AMOUNT_STEP = 1000;
+
+      function setTotalAmount(n) {
+        const input = document.getElementById("totalAmount");
+        const safe = Math.max(0, Math.round(n));
+        input.value =
+          safe > 0
+            ? safe.toLocaleString("zh-CN", { maximumFractionDigits: 0 })
+            : "";
+        updateAmountLive();
+        calculate();
+      }
+
+      function stepAmount(delta) {
+        setTotalAmount(getTotalAmount() + delta);
       }
 
       function fmtTime(d) {
@@ -1382,6 +1456,13 @@
       initTable();
       refreshAll(false);
       setInterval(() => refreshAll(false), REFRESH_MS);
+
+      document
+        .getElementById("amountMinus")
+        .addEventListener("click", () => stepAmount(-AMOUNT_STEP));
+      document
+        .getElementById("amountPlus")
+        .addEventListener("click", () => stepAmount(AMOUNT_STEP));
 
       document.getElementById("totalAmount").addEventListener("input", (e) => {
         e.target.value = e.target.value.replace(/[^\d]/g, "");
