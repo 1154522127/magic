@@ -1,0 +1,1412 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1"
+    />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+    />
+    <meta name="apple-mobile-web-app-title" content="magic" />
+    <meta name="theme-color" content="#0f1419" />
+    <title>magic</title>
+    <style>
+      :root {
+        --surface: #1a2332;
+        --surface2: #243044;
+        --border: #2d3a4f;
+        --text: #e8edf4;
+        --muted: #8b9cb3;
+        --accent: #3b82f6;
+        --accent-hover: #2563eb;
+        --success: #22c55e;
+        --warning: #f59e0b;
+        --danger: #ef4444;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+
+      html,
+      body {
+        height: 100%;
+        overflow: hidden;
+      }
+
+      body {
+        font-family:
+          -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+          "Microsoft YaHei", sans-serif;
+        background: linear-gradient(160deg, #0f1419 0%, #1a2744 100%);
+        color: var(--text);
+        font-size: 13px;
+        line-height: 1.35;
+      }
+
+      .app {
+        height: 100vh;
+        height: 100dvh;
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 8px 12px calc(10px + env(safe-area-inset-bottom));
+        padding-top: calc(8px + env(safe-area-inset-top));
+        display: grid;
+        grid-template-rows: auto auto 1fr auto auto;
+        gap: 6px;
+      }
+
+      .topbar {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .topbar h1 {
+        font-size: 1rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .topbar-right {
+        margin-left: auto;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .amount-wrap {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .amount-wrap label {
+        color: var(--muted);
+        font-size: 0.75rem;
+        white-space: nowrap;
+      }
+
+      .amount-field {
+        display: flex;
+        align-items: center;
+        background: var(--surface2);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 0 8px;
+      }
+      .amount-field:focus-within {
+        border-color: var(--accent);
+      }
+
+      .amount-prefix,
+      .amount-suffix {
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+      .amount-wrap input {
+        width: 100px;
+        padding: 5px 4px;
+        background: transparent;
+        border: none;
+        color: var(--text);
+        font-size: 0.95rem;
+        font-weight: 700;
+        outline: none;
+        font-variant-numeric: tabular-nums;
+      }
+
+      .amount-live {
+        font-size: 0.88rem;
+        font-weight: 700;
+        color: #60a5fa;
+        white-space: nowrap;
+        font-variant-numeric: tabular-nums;
+      }
+      .amount-live.empty {
+        color: var(--muted);
+        font-weight: 500;
+        font-size: 0.75rem;
+      }
+
+      .btn {
+        padding: 5px 12px;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.78rem;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        min-height: 36px;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .btn:hover {
+        background: var(--accent-hover);
+      }
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      .btn-outline {
+        background: transparent;
+        border: 1px solid var(--border);
+        color: var(--text);
+      }
+      .btn-outline:hover {
+        background: var(--surface2);
+      }
+
+      .quote-status {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.72rem;
+        color: var(--muted);
+      }
+      .live-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: var(--muted);
+      }
+      .live-dot.on {
+        background: var(--success);
+        box-shadow: 0 0 5px var(--success);
+        animation: pulse 2s infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.45;
+        }
+      }
+
+      .summary-bar {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 5px;
+      }
+      .stat {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        padding: 5px 8px;
+        text-align: center;
+      }
+      .stat .lbl {
+        font-size: 0.65rem;
+        color: var(--muted);
+      }
+      .stat .val {
+        font-size: 0.88rem;
+        font-weight: 700;
+      }
+      .val.ok {
+        color: var(--success);
+      }
+      .val.warn {
+        color: var(--warning);
+      }
+      .val.bad {
+        color: var(--danger);
+      }
+
+      .banner {
+        border-radius: 6px;
+        padding: 5px 10px;
+        font-size: 0.75rem;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .banner.ok {
+        background: rgba(34, 197, 94, 0.12);
+        border: 1px solid rgba(34, 197, 94, 0.3);
+        color: #86efac;
+      }
+      .banner.warn {
+        background: rgba(245, 158, 11, 0.12);
+        border: 1px solid rgba(245, 158, 11, 0.3);
+        color: #fcd34d;
+      }
+      .banner.err {
+        background: rgba(239, 68, 68, 0.12);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        color: #fca5a5;
+      }
+      .banner.info {
+        background: rgba(59, 130, 246, 0.12);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        color: #93c5fd;
+      }
+
+      .bottom-area {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+      }
+
+      .table-wrap {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      .table-scroll {
+        flex: 1;
+        overflow: auto;
+        min-height: 0;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.76rem;
+      }
+      thead th {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        background: var(--surface2);
+        text-align: center;
+        padding: 6px 4px;
+        color: var(--muted);
+        font-weight: 600;
+        font-size: 0.68rem;
+        border-bottom: 1px solid var(--border);
+        white-space: nowrap;
+      }
+      tbody td {
+        text-align: center;
+        padding: 7px 4px;
+        border-bottom: 1px solid var(--border);
+        vertical-align: middle;
+      }
+      tbody tr:last-child td {
+        border-bottom: none;
+      }
+      tbody tr:hover {
+        background: rgba(59, 130, 246, 0.06);
+      }
+      td.left {
+        text-align: left;
+      }
+
+      .code {
+        font-family: "SF Mono", Menlo, monospace;
+        font-weight: 700;
+        color: var(--accent);
+        font-size: 0.8rem;
+      }
+      .name {
+        color: var(--muted);
+        font-size: 0.68rem;
+      }
+      .ratio-badge {
+        display: inline-block;
+        background: rgba(59, 130, 246, 0.15);
+        color: var(--accent);
+        padding: 1px 6px;
+        border-radius: 4px;
+        font-weight: 700;
+        font-size: 0.72rem;
+      }
+
+      .price-val {
+        font-variant-numeric: tabular-nums;
+        font-size: 0.8rem;
+        font-weight: 700;
+      }
+
+      .chg {
+        font-size: 0.68rem;
+        font-weight: 600;
+      }
+      .chg.up {
+        color: var(--danger);
+      }
+      .chg.down {
+        color: var(--success);
+      }
+      .chg.flat {
+        color: var(--muted);
+      }
+
+      .money {
+        font-variant-numeric: tabular-nums;
+        font-size: 0.74rem;
+      }
+
+      .val-text {
+        font-size: 0.68rem;
+        color: var(--muted);
+        line-height: 1.3;
+      }
+      .val-text b {
+        color: var(--text);
+        font-weight: 600;
+      }
+
+      .tag {
+        display: inline-block;
+        padding: 2px 6px;
+        border-radius: 4px;
+        font-size: 0.68rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+      .tag-ok {
+        background: rgba(34, 197, 94, 0.15);
+        color: var(--success);
+      }
+      .tag-warn {
+        background: rgba(245, 158, 11, 0.15);
+        color: var(--warning);
+      }
+      .tag-buy {
+        background: rgba(34, 197, 94, 0.22);
+        color: #4ade80;
+      }
+      .tag-stop {
+        background: rgba(239, 68, 68, 0.18);
+        color: #f87171;
+      }
+      .tag-hold {
+        background: rgba(59, 130, 246, 0.15);
+        color: #93c5fd;
+      }
+
+      .prem {
+        font-size: 0.72rem;
+        font-weight: 700;
+      }
+      .prem.ok {
+        color: var(--success);
+      }
+      .prem.warn {
+        color: var(--warning);
+      }
+      .prem.bad {
+        color: var(--danger);
+      }
+      .prem.na {
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      .table-foot {
+        padding: 4px 10px;
+        font-size: 0.62rem;
+        color: var(--muted);
+        border-top: 1px solid var(--border);
+        text-align: center;
+      }
+
+      .mobile-hint {
+        display: none;
+        background: rgba(59, 130, 246, 0.1);
+        border: 1px solid rgba(59, 130, 246, 0.25);
+        border-radius: 7px;
+        padding: 8px 10px;
+        font-size: 0.72rem;
+        color: #93c5fd;
+        line-height: 1.45;
+      }
+
+      @media (max-width: 768px) {
+        html,
+        body {
+          overflow: auto;
+          height: auto;
+          min-height: 100%;
+        }
+        .app {
+          height: auto;
+          min-height: 100dvh;
+          padding-left: calc(10px + env(safe-area-inset-left));
+          padding-right: calc(10px + env(safe-area-inset-right));
+        }
+
+        .topbar {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 8px;
+        }
+        .topbar h1 {
+          font-size: 0.95rem;
+          text-align: center;
+        }
+        .topbar-right {
+          margin-left: 0;
+          justify-content: center;
+        }
+
+        .amount-wrap {
+          flex-wrap: wrap;
+          justify-content: center;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          padding: 10px;
+        }
+        .amount-wrap input {
+          width: 120px;
+          font-size: 1.1rem;
+          padding: 8px 4px;
+        }
+        .amount-live {
+          width: 100%;
+          text-align: center;
+          font-size: 1rem;
+          min-width: 0;
+          white-space: normal;
+        }
+
+        .btn {
+          min-height: 44px;
+          padding: 10px 18px;
+          font-size: 0.85rem;
+          flex: 1;
+        }
+
+        .summary-bar {
+          grid-template-columns: repeat(2, 1fr);
+          gap: 6px;
+        }
+        .stat {
+          padding: 8px;
+        }
+        .stat .val {
+          font-size: 0.82rem;
+        }
+
+        .banner {
+          white-space: normal;
+          line-height: 1.4;
+          max-height: none;
+          overflow: visible;
+        }
+
+        .mobile-hint {
+          display: block;
+        }
+
+        table {
+          font-size: 0.72rem;
+          min-width: 680px;
+        }
+        .table-scroll {
+          -webkit-overflow-scrolling: touch;
+        }
+        .price-val {
+          font-size: 0.82rem;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <div class="topbar">
+        <div class="amount-wrap">
+          <label for="totalAmount">投入</label>
+          <div class="amount-field">
+            <span class="amount-prefix">¥</span>
+            <input
+              type="text"
+              id="totalAmount"
+              inputmode="numeric"
+              value="120000"
+              autocomplete="off"
+            />
+            <span class="amount-suffix">元</span>
+          </div>
+          <div class="amount-live" id="amountLive">= 12.00 万 · ¥120,000</div>
+        </div>
+        <button class="btn" onclick="calculate()">计算</button>
+        <div class="topbar-right">
+          <div class="quote-status">
+            <span class="live-dot" id="liveDot"></span>
+            <span id="quoteStatus">获取中…</span>
+          </div>
+          <button
+            class="btn btn-outline"
+            id="refreshBtn"
+            onclick="refreshAll(true)"
+          >
+            刷新
+          </button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <div class="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>代码/名称</th>
+                <th>现价</th>
+                <th>溢价率</th>
+                <th>估值指标</th>
+                <th>买入建议</th>
+                <th>手数</th>
+                <th>涨跌</th>
+                <th>目标</th>
+                <th>1手</th>
+                <th>股数</th>
+                <th>实买</th>
+                <th>比例</th>
+              </tr>
+            </thead>
+            <tbody id="mainBody"></tbody>
+          </table>
+        </div>
+        <div class="table-foot">
+          PE/PB=指数估值 · 溢价率=现价高于参考净值的幅度 · QDII&gt;3%慎买 ·
+          各品种独立估值模型 · 蛋卷数据 · 仅供参考
+        </div>
+      </div>
+
+      <div class="bottom-area">
+        <div class="banner ok" id="banner">等待数据…</div>
+        <div class="banner info" id="valBanner">
+          估值加载中…（纳指成长法·标普博格法·A股双分位·股息PB法·股债比价）
+        </div>
+        <div class="summary-bar">
+          <div class="stat">
+            <div class="lbl">投入总额</div>
+            <div class="val" id="sTotal">—</div>
+          </div>
+          <div class="stat">
+            <div class="lbl">可实际买入</div>
+            <div class="val" id="sActual">—</div>
+          </div>
+          <div class="stat">
+            <div class="lbl">剩余未分配</div>
+            <div class="val" id="sLeft">—</div>
+          </div>
+          <div class="stat">
+            <div class="lbl">各买1手最低总额</div>
+            <div class="val warn" id="sMin">—</div>
+          </div>
+          <div class="stat">
+            <div class="lbl">还需补（凑1手）</div>
+            <div class="val" id="sGap">—</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const PORTFOLIO = [
+        {
+          code: "513100",
+          name: "纳指",
+          ratio: 0.14,
+          secid: "1.513100",
+          indexCode: "NDX",
+          method: "ndx",
+        },
+        {
+          code: "513500",
+          name: "标普500",
+          ratio: 0.21,
+          secid: "1.513500",
+          indexCode: "SP500",
+          method: "sp500",
+        },
+        {
+          code: "563360",
+          name: "中证A500",
+          ratio: 0.25,
+          secid: "1.563360",
+          indexCode: "SH000905",
+          method: "a_share",
+          proxy: "中证500",
+        },
+        {
+          code: "515450",
+          name: "红利低波50",
+          ratio: 0.1,
+          secid: "1.515450",
+          indexCode: "CSIH30269",
+          method: "dividend",
+        },
+        {
+          code: "511260",
+          name: "十年国债",
+          ratio: 0.3,
+          secid: "1.511260",
+          indexCode: null,
+          method: "bond",
+        },
+      ];
+
+      const LOT = 100;
+      const REFRESH_MS = 30000;
+      let fetching = false;
+      let valMap = {};
+      let valDate = "";
+      let premiumMap = {};
+
+      function fmt(n) {
+        return n.toLocaleString("zh-CN", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        });
+      }
+
+      function parseAmount(str) {
+        const n = parseFloat(
+          String(str)
+            .replace(/,/g, "")
+            .replace(/[^\d.]/g, ""),
+        );
+        return isNaN(n) ? 0 : n;
+      }
+
+      function fmtAmountHint(n) {
+        if (!n || n <= 0) return { text: "请输入金额", empty: true };
+        const wan = n / 10000;
+        const wanStr =
+          wan >= 100
+            ? wan.toFixed(0) + " 万"
+            : wan >= 10
+              ? wan.toFixed(1) + " 万"
+              : wan.toFixed(2) + " 万";
+        return {
+          text: `= ${wanStr} · ¥${n.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} · ${Math.floor(n).toString().length}位数`,
+          empty: false,
+        };
+      }
+
+      function updateAmountLive() {
+        const hint = fmtAmountHint(
+          parseAmount(document.getElementById("totalAmount").value),
+        );
+        const el = document.getElementById("amountLive");
+        el.textContent = hint.text;
+        el.classList.toggle("empty", hint.empty);
+      }
+
+      function getTotalAmount() {
+        return parseAmount(document.getElementById("totalAmount").value);
+      }
+
+      function fmtTime(d) {
+        return d.toLocaleTimeString("zh-CN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+      }
+
+      function fmtPct(p) {
+        return (p > 0 ? "+" : "") + p.toFixed(2) + "%";
+      }
+      function chgCls(p) {
+        return p > 0 ? "up" : p < 0 ? "down" : "flat";
+      }
+
+      function calcPremium(price, iopv) {
+        if (!price || !iopv || iopv <= 0) return null;
+        return ((price - iopv) / iopv) * 100;
+      }
+
+      function premiumLevel(pct, isQdii) {
+        if (pct == null) return { cls: "na", text: "—", level: "na" };
+        const text = (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%";
+        const threshold = isQdii ? { ok: 2, warn: 5 } : { ok: 0.5, warn: 2 };
+        if (pct <= threshold.ok) return { cls: "ok", text, level: "ok" };
+        if (pct <= threshold.warn) return { cls: "warn", text, level: "warn" };
+        return { cls: "bad", text, level: "bad" };
+      }
+
+      function renderPremium(code, price, iopv) {
+        const isQdii = code === "513100" || code === "513500";
+        const pct = calcPremium(price, iopv);
+        if (pct != null) premiumMap[code] = { pct, isQdii, iopv };
+        const p = premiumLevel(pct, isQdii);
+        const el = document.getElementById("prem-" + code);
+        el.className = "prem " + p.cls;
+        el.textContent = p.text;
+        el.title =
+          pct != null
+            ? `参考净值(IOPV) ${iopv.toFixed(4)} · 溢价=${p.text}${isQdii && pct > 3 ? " · QDII溢价偏高" : ""}`
+            : "暂无IOPV数据";
+      }
+
+      function initTable() {
+        document.getElementById("mainBody").innerHTML = PORTFOLIO.map(
+          (p) => `
+        <tr data-code="${p.code}">
+          <td class="left"><div class="code">${p.code}</div><div class="name">${p.name}</div></td>
+          <td><span class="price-val" id="price-${p.code}">—</span></td>
+          <td><span class="prem na" id="prem-${p.code}">—</span></td>
+          <td class="val-text" id="val-${p.code}">—</td>
+          <td id="adv-${p.code}">—</td>
+          <td id="status-${p.code}">—</td>
+          <td><span class="chg flat" id="chg-${p.code}">—</span></td>
+          <td class="money" id="tgt-${p.code}">—</td>
+          <td class="money" id="lot-${p.code}">—</td>
+          <td id="shares-${p.code}">—</td>
+          <td class="money" id="act-${p.code}">—</td>
+          <td><span class="ratio-badge">${(p.ratio * 100).toFixed(0)}%</span></td>
+        </tr>
+      `,
+        ).join("");
+      }
+
+      function getPrice(code) {
+        const v = parseFloat(
+          document.getElementById("price-" + code).textContent,
+        );
+        return v > 0 ? v : 0;
+      }
+
+      function setQuote(text, live) {
+        document.getElementById("quoteStatus").textContent = text;
+        document.getElementById("liveDot").classList.toggle("on", live);
+      }
+
+      function setBanner(type, text) {
+        const el = document.getElementById("banner");
+        el.className = "banner " + type;
+        el.textContent = text;
+        el.title = text;
+      }
+
+      function setValBanner(text, type) {
+        const el = document.getElementById("valBanner");
+        el.className = "banner " + (type || "info");
+        el.textContent = text;
+        el.title = text;
+      }
+
+      /* ── 估值数据获取 ── */
+      const IS_FILE_PROTOCOL =
+        location.protocol === "file:" || location.origin === "null";
+
+      async function fetchLatestDjevaDate() {
+        try {
+          const r = await fetch(
+            "https://cdn.jsdelivr.net/gh/caibingcheng/djeva@master/djeva.js",
+          );
+          if (!r.ok) return null;
+          const text = await r.text();
+          const m = text.match(/return (\{.*\});/s);
+          if (!m) return null;
+          const data = JSON.parse(m[1]).data;
+          let latest = null;
+          for (const y of Object.keys(data).sort((a, b) => b - a)) {
+            for (const mo of Object.keys(data[y]).sort(
+              (a, b) => Number(b) - Number(a),
+            )) {
+              for (const day of data[y][mo].sort(
+                (a, b) => Number(b) - Number(a),
+              )) {
+                latest = `${y}-${mo.padStart(2, "0")}-${day.padStart(2, "0")}`;
+                break;
+              }
+              if (latest) break;
+            }
+            if (latest) break;
+          }
+          return latest;
+        } catch {
+          return null;
+        }
+      }
+
+      async function fetchDjevaJson(date) {
+        const url = `https://cdn.jsdelivr.net/gh/caibingcheng/djeva@master/json/${date}.json`;
+        const r = await fetch(url);
+        if (!r.ok) return null;
+        const items = await r.json();
+        if (!Array.isArray(items) || !items.length) return null;
+        return {
+          map: Object.fromEntries(items.map((i) => [i.index_code, i])),
+          date,
+        };
+      }
+
+      async function fetchValuationData() {
+        // file:// 打开时蛋卷接口会被 CORS 拦截，直接用 GitHub 镜像
+        if (!IS_FILE_PROTOCOL) {
+          try {
+            const r = await fetch(
+              "https://danjuanfunds.com/djapi/index_eva/dj",
+              {
+                headers: {
+                  Referer: "https://danjuanfunds.com/djmodule/value-center",
+                },
+              },
+            );
+            if (r.ok) return parseValJson(await r.json());
+          } catch (_) {}
+        }
+
+        const tried = new Set();
+        const latest = await fetchLatestDjevaDate();
+        if (latest) {
+          tried.add(latest);
+          const hit = await fetchDjevaJson(latest);
+          if (hit) return hit;
+        }
+
+        for (const d of recentDates(12)) {
+          if (tried.has(d)) continue;
+          const hit = await fetchDjevaJson(d);
+          if (hit) return hit;
+        }
+        throw new Error("估值数据获取失败");
+      }
+
+      function recentDates(n) {
+        const out = [];
+        const d = new Date();
+        for (let i = 0; i < n * 2 && out.length < n; i++) {
+          const t = new Date(d);
+          t.setDate(t.getDate() - i);
+          if (t.getDay() === 0 || t.getDay() === 6) continue;
+          out.push(t.toISOString().slice(0, 10));
+        }
+        return out;
+      }
+
+      function parseValJson(json) {
+        const items = json?.data?.items || json?.data || json;
+        if (!Array.isArray(items)) throw new Error("格式错误");
+        const date = items[0]?.date || new Date().toISOString().slice(0, 10);
+        return {
+          map: Object.fromEntries(items.map((i) => [i.index_code, i])),
+          date,
+        };
+      }
+
+      /* ── 估值模型（各品种独立） ── */
+      function valPct(v, key) {
+        return (v[key] || 0) * 100;
+      }
+
+      function zoneFromPct(pct) {
+        return pct < 30 ? "低估区" : pct < 70 ? "合理区" : "偏高区";
+      }
+
+      function earningsYield(v) {
+        const pe = v.pe || 0;
+        return pe > 0 ? 100 / pe : 0;
+      }
+
+      function equityRiskPremium(v) {
+        const bondY = (v.bond_yeild || 0.04) * 100;
+        return earningsYield(v) - bondY;
+      }
+
+      function bogleReturn(v) {
+        const div = valPct(v, "yeild");
+        const roe = valPct(v, "roe");
+        const peP = valPct(v, "pe_percentile");
+        const ey = earningsYield(v);
+        return div + roe * 0.25 + ey * 0.15 - (peP - 50) * 0.06;
+      }
+
+      function signalFromPercentile(pct, divBonus) {
+        let action, level, tagCls;
+        if (pct < 30) {
+          action = "积极买入";
+          level = "buy";
+          tagCls = "tag-buy";
+        } else if (pct < 50) {
+          action = "正常买入";
+          level = "ok";
+          tagCls = "tag-ok";
+        } else if (pct < 70) {
+          action = "可以买入";
+          level = "ok";
+          tagCls = "tag-ok";
+        } else if (pct < 85) {
+          action = "减半买入";
+          level = "warn";
+          tagCls = "tag-warn";
+        } else {
+          action = "暂停买入";
+          level = "stop";
+          tagCls = "tag-stop";
+        }
+
+        if (divBonus && pct < 75 && level === "warn") {
+          action = "可以买入";
+          level = "ok";
+          tagCls = "tag-ok";
+        }
+        return { action, level, tagCls };
+      }
+
+      function downgrade(sig, action, level, tagCls) {
+        const rank = { buy: 0, ok: 1, warn: 2, stop: 3, na: -1 };
+        if (rank[level] > rank[sig.level]) return { action, level, tagCls };
+        return sig;
+      }
+
+      /* 纳指：成长科技法 — PB 权重更高，PEG/股债利差辅助 */
+      function evalNasdaq(v) {
+        const peP = valPct(v, "pe_percentile");
+        const pbP = valPct(v, "pb_percentile");
+        const div = valPct(v, "yeild");
+        const peg = v.peg || 0;
+        const erp = equityRiskPremium(v);
+        const score = pbP * 0.6 + peP * 0.4;
+
+        let sig = signalFromPercentile(score, false);
+        if (pbP >= 90) sig = downgrade(sig, "减半买入", "warn", "tag-warn");
+        if (pbP >= 95 || score >= 85) sig = { action: "暂停买入", level: "stop", tagCls: "tag-stop" };
+        if (peg > 1.8 && score >= 65) sig = downgrade(sig, "减半买入", "warn", "tag-warn");
+        if (erp < 0 && score >= 60) sig = downgrade(sig, "减半买入", "warn", "tag-warn");
+
+        const zone = zoneFromPct(Math.max(pbP, peP, score));
+        const peVal = v.pe ? v.pe.toFixed(1) : "—";
+        const pbVal = v.pb ? v.pb.toFixed(2) : "—";
+        const metrics = `PB<b>${pbVal}</b>(${pbP.toFixed(0)}%) PE<b>${peVal}</b>(${peP.toFixed(0)}%)<br>PEG<b>${peg ? peg.toFixed(2) : "—"}</b> 利差<b>${erp.toFixed(1)}%</b>`;
+        return { ...sig, peP, pbP, div, score, metrics, detail: `${zone}·成长科技法`, zone };
+      }
+
+      /* 标普500：博格预期收益法 — 宽基美股经典模型 */
+      function evalSp500(v) {
+        const peP = valPct(v, "pe_percentile");
+        const pbP = valPct(v, "pb_percentile");
+        const div = valPct(v, "yeild");
+        const bogle = bogleReturn(v);
+        const erp = equityRiskPremium(v);
+
+        let sig = signalFromPercentile(peP, div > 2.5);
+        if (bogle < 2 && peP > 70) sig = { action: "暂停买入", level: "stop", tagCls: "tag-stop" };
+        else if (bogle < 4 && peP > 75) sig = downgrade(sig, "减半买入", "warn", "tag-warn");
+        else if (bogle > 6 && peP < 50) sig = { action: "积极买入", level: "buy", tagCls: "tag-buy" };
+        if (pbP > 95) sig = downgrade(sig, "减半买入", "warn", "tag-warn");
+        if (erp < -1 && peP > 65) sig = downgrade(sig, "减半买入", "warn", "tag-warn");
+
+        const zone = zoneFromPct(Math.max(peP, pbP));
+        const peVal = v.pe ? v.pe.toFixed(1) : "—";
+        const pbVal = v.pb ? v.pb.toFixed(2) : "—";
+        const metrics = `PE<b>${peVal}</b>(${peP.toFixed(0)}%) 博格<b>${bogle.toFixed(1)}%</b><br>股息<b>${div.toFixed(1)}%</b> 利差<b>${erp.toFixed(1)}%</b>`;
+        return { ...sig, peP, pbP, div, bogle, score: peP, metrics, detail: `${zone}·博格预期法`, zone };
+      }
+
+      /* 中证A500：A股双分位法 — 综合分定主调，单项极高仅加码从严 */
+      function evalAShare(v, proxy) {
+        const peP = valPct(v, "pe_percentile");
+        const pbP = valPct(v, "pb_percentile");
+        const div = valPct(v, "yeild");
+        const roe = valPct(v, "roe");
+        const score = peP * 0.55 + pbP * 0.45;
+
+        let sig = signalFromPercentile(score, div > 2.5);
+
+        // 综合分定主调；单项极高仅在「可买」阶段加码降级，不另设暂停线
+        if (sig.level === "buy" || sig.level === "ok") {
+          if (peP > 88 || pbP > 92)
+            sig = downgrade(sig, "减半买入", "warn", "tag-warn");
+          else if (peP > 82 && pbP > 82)
+            sig = downgrade(sig, "减半买入", "warn", "tag-warn");
+        }
+        if (roe < 8 && score > 70)
+          sig = downgrade(sig, "减半买入", "warn", "tag-warn");
+
+        const zone = zoneFromPct(score);
+        const peVal = v.pe ? v.pe.toFixed(1) : "—";
+        const pbVal = v.pb ? v.pb.toFixed(2) : "—";
+        const metrics = `PE<b>${peVal}</b>(${peP.toFixed(0)}%) PB<b>${pbVal}</b>(${pbP.toFixed(0)}%)<br>综合<b>${score.toFixed(0)}%</b> ROE<b>${roe.toFixed(1)}%</b>`;
+        const detail = `${zone}·A股双分位${proxy ? "·" + proxy + "参考" : ""}`;
+        return { ...sig, peP, pbP, div, score, metrics, detail, zone };
+      }
+
+      /* 红利低波：股息市净率法 — PB 为主，高股息修正 */
+      function evalDividend(v) {
+        const peP = valPct(v, "pe_percentile");
+        const pbP = valPct(v, "pb_percentile");
+        const div = valPct(v, "yeild");
+        const roe = valPct(v, "roe");
+        const score = pbP * 0.65 + peP * 0.35;
+
+        let sig = signalFromPercentile(score, div > 4);
+        if (div > 5 && pbP < 75) {
+          if (sig.level === "stop") sig = { action: "减半买入", level: "warn", tagCls: "tag-warn" };
+          else if (sig.level === "warn") sig = { action: "可以买入", level: "ok", tagCls: "tag-ok" };
+          else if (sig.level === "ok") sig = { action: "正常买入", level: "ok", tagCls: "tag-ok" };
+        }
+        if (div > 6 && pbP < 60) sig = { action: "积极买入", level: "buy", tagCls: "tag-buy" };
+
+        const zone = zoneFromPct(pbP);
+        const peVal = v.pe ? v.pe.toFixed(1) : "—";
+        const pbVal = v.pb ? v.pb.toFixed(2) : "—";
+        const metrics = `PB<b>${pbVal}</b>(${pbP.toFixed(0)}%) 股息<b>${div.toFixed(1)}%</b><br>PE<b>${peVal}</b>(${peP.toFixed(0)}%) ROE<b>${roe.toFixed(1)}%</b>`;
+        return { ...sig, peP, pbP, div, score, metrics, detail: `${zone}·股息市净率法`, zone };
+      }
+
+      /* 十年国债：股债比价法 — 根据股票整体估值决定债的配置吸引力 */
+      function evalBond(ctx) {
+        const { avgScore, highCount, lowCount } = ctx;
+        let sig, metrics, detail, zone;
+
+        if (avgScore >= 75 || highCount >= 3) {
+          sig = { action: "可以买入", level: "ok", tagCls: "tag-ok" };
+          zone = "合理区";
+          metrics = `股综<b>${avgScore.toFixed(0)}%</b> 偏高<b>${highCount}</b>只<br>仓位加权·股贵债优`;
+          detail = `${zone}·股债比价法`;
+        } else if (avgScore <= 40 || lowCount >= 2) {
+          sig = { action: "减半买入", level: "warn", tagCls: "tag-warn" };
+          zone = "偏低区";
+          metrics = `股综<b>${avgScore.toFixed(0)}%</b> 低估<b>${lowCount}</b>只<br>仓位加权·减债增股`;
+          detail = `${zone}·股债比价法`;
+        } else {
+          sig = { action: "正常买入", level: "ok", tagCls: "tag-hold" };
+          zone = "合理区";
+          metrics = `股综<b>${avgScore.toFixed(0)}%</b><br>仓位加权·维持比例`;
+          detail = `${zone}·股债比价法`;
+        }
+        return { ...sig, peP: avgScore, score: avgScore, metrics, detail, zone };
+      }
+
+      const EVALUATORS = {
+        ndx: evalNasdaq,
+        sp500: evalSp500,
+        a_share: (v, p) => evalAShare(v, p.proxy),
+        dividend: evalDividend,
+      };
+
+      function evaluatePortfolio() {
+        const results = {};
+        const equityCtx = [];
+
+        PORTFOLIO.forEach((p) => {
+          if (p.method === "bond") return;
+          const v = valMap[p.indexCode];
+          if (!v) {
+            results[p.code] = {
+              action: "暂无数据",
+              level: "na",
+              tagCls: "tag-warn",
+              metrics: "—",
+              detail: "等待估值",
+            };
+            return;
+          }
+          const evalFn = EVALUATORS[p.method];
+          let r = evalFn ? evalFn(v, p) : evalAShare(v, p.proxy);
+          r = applyPremiumAdvice(p.code, r);
+          results[p.code] = r;
+          if (r.score != null) {
+            equityCtx.push({ score: r.score, zone: r.zone, weight: p.ratio });
+          }
+        });
+
+        const bondP = PORTFOLIO.find((p) => p.method === "bond");
+        if (bondP) {
+          const totalWeight = equityCtx.reduce((s, e) => s + e.weight, 0);
+          const avgScore = totalWeight
+            ? equityCtx.reduce((s, e) => s + e.score * e.weight, 0) / totalWeight
+            : 60;
+          const highCount = equityCtx.filter((e) => e.zone === "偏高区").length;
+          const lowCount = equityCtx.filter((e) => e.zone === "低估区").length;
+          results[bondP.code] = evalBond({ avgScore, highCount, lowCount });
+        }
+
+        return results;
+      }
+
+      function applyPremiumAdvice(code, sig) {
+        const prem = premiumMap[code];
+        if (!prem || prem.pct == null) return sig;
+        const r = { ...sig };
+        const { pct, isQdii } = prem;
+
+        if (isQdii && pct > 5) {
+          r.action = "暂停买入";
+          r.level = "stop";
+          r.tagCls = "tag-stop";
+          r.detail = (r.detail || "") + ` · 溢价${pct.toFixed(1)}%过高`;
+        } else if (isQdii && pct > 3) {
+          if (r.level === "buy" || r.level === "ok") {
+            r.action = "减半买入";
+            r.level = "warn";
+            r.tagCls = "tag-warn";
+          }
+          r.detail = (r.detail || "") + ` · 溢价${pct.toFixed(1)}%偏高`;
+        } else if (pct > 2 && !isQdii) {
+          r.detail = (r.detail || "") + ` · 溢价${pct.toFixed(2)}%`;
+        }
+        return r;
+      }
+
+      function renderValuation() {
+        const results = evaluatePortfolio();
+        let buyN = 0,
+          warnN = 0,
+          stopN = 0;
+
+        PORTFOLIO.forEach((p) => {
+          const r = results[p.code];
+          if (!r) return;
+          document.getElementById("val-" + p.code).innerHTML =
+            r.metrics + `<br><span style="opacity:.7">${r.detail}</span>`;
+          document.getElementById("adv-" + p.code).innerHTML =
+            `<span class="tag ${r.tagCls}">${r.action}</span>`;
+          if (r.level === "buy" || r.level === "ok") buyN++;
+          else if (r.level === "warn") warnN++;
+          else if (r.level === "stop") stopN++;
+        });
+
+        const parts = [];
+        if (buyN) parts.push(`${buyN} 只可买`);
+        if (warnN) parts.push(`${warnN} 只建议减半`);
+        if (stopN) parts.push(`${stopN} 只建议暂停`);
+        const dateStr = valDate ? ` · 数据${valDate}` : "";
+        setValBanner(
+          `📊 估值结论：${parts.join("，") || "—"}${dateStr}`,
+          stopN >= 2 ? "warn" : "info",
+        );
+      }
+
+      async function loadValuation() {
+        try {
+          const { map, date } = await fetchValuationData();
+          valMap = map;
+          valDate = date;
+          renderValuation();
+          return true;
+        } catch (e) {
+          setValBanner(
+            "估值加载失败：" + e.message + "（仍可计算金额分配）",
+            "err",
+          );
+          return false;
+        }
+      }
+
+      async function fetchEM() {
+        const ids = PORTFOLIO.map((p) => p.secid).join(",");
+        const r = await fetch(
+          `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=${ids}&fields=f12,f2,f3,f441`,
+        );
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        const j = await r.json();
+        if (!j.data?.diff) throw new Error("无行情");
+        return j.data.diff;
+      }
+
+      function fetchSina() {
+        return new Promise((resolve, reject) => {
+          const syms = PORTFOLIO.map((p) => "sh" + p.code).join(",");
+          const s = document.createElement("script");
+          s.src = `https://hq.sinajs.cn/list=${syms}&_=${Date.now()}`;
+          s.onload = () => {
+            try {
+              resolve(
+                PORTFOLIO.map((p) => {
+                  const raw = window["hq_str_sh" + p.code];
+                  if (!raw) throw new Error(p.code);
+                  const a = raw.split(",");
+                  const price = parseFloat(a[3]);
+                  const prev = parseFloat(a[2]);
+                  return {
+                    f12: p.code,
+                    f2: price,
+                    f3: prev > 0 ? ((price - prev) / prev) * 100 : 0,
+                  };
+                }),
+              );
+            } catch (e) {
+              reject(e);
+            } finally {
+              s.remove();
+            }
+          };
+          s.onerror = () => {
+            s.remove();
+            reject(new Error("新浪失败"));
+          };
+          document.body.appendChild(s);
+        });
+      }
+
+      async function fetchPrices() {
+        let quotes;
+        try {
+          quotes = await fetchEM();
+        } catch {
+          quotes = await fetchSina();
+        }
+        const map = Object.fromEntries(quotes.map((q) => [q.f12, q]));
+        PORTFOLIO.forEach((p) => {
+          const q = map[p.code];
+          if (!q?.f2) return;
+          const price = Number(q.f2);
+          document.getElementById("price-" + p.code).textContent =
+            price.toFixed(3);
+          const c = document.getElementById("chg-" + p.code);
+          const pct = Number(q.f3) || 0;
+          c.className = "chg " + chgCls(pct);
+          c.textContent = fmtPct(pct);
+          renderPremium(p.code, price, Number(q.f441));
+        });
+      }
+
+      async function refreshAll(manual) {
+        if (fetching) return;
+        fetching = true;
+        document.getElementById("refreshBtn").disabled = true;
+        if (manual) setQuote("刷新中…", false);
+
+        try {
+          await Promise.all([fetchPrices(), loadValuation()]);
+          setQuote("已更新 " + fmtTime(new Date()), true);
+          calculate();
+        } catch (e) {
+          setQuote("部分失败", false);
+          setBanner("err", "刷新异常：" + e.message);
+        } finally {
+          fetching = false;
+          document.getElementById("refreshBtn").disabled = false;
+        }
+      }
+
+      function calculate() {
+        const total = getTotalAmount();
+        if (total <= 0) {
+          setBanner("warn", "请输入有效投入金额");
+          return;
+        }
+        if (!PORTFOLIO.every((p) => getPrice(p.code) > 0)) {
+          setBanner("warn", "等待行情数据…");
+          return;
+        }
+
+        const valResults = evaluatePortfolio();
+        const rows = PORTFOLIO.map((p) => {
+          const price = getPrice(p.code);
+          const target = total * p.ratio;
+          const minLot = price * LOT;
+          const lots = Math.floor(target / minLot);
+          const shares = lots * LOT;
+          const actual = lots * minLot;
+          const shortfall = lots === 0 ? minLot - target : 0;
+          const minTotal = minLot / p.ratio;
+          const val = valResults[p.code];
+          return {
+            ...p,
+            price,
+            target,
+            minLot,
+            lots,
+            shares,
+            actual,
+            shortfall,
+            minTotal,
+            val,
+          };
+        });
+
+        rows.forEach((r) => {
+          document.getElementById("tgt-" + r.code).textContent =
+            "¥" + fmt(r.target);
+          document.getElementById("lot-" + r.code).textContent =
+            "¥" + fmt(r.minLot);
+          document.getElementById("shares-" + r.code).textContent =
+            r.shares > 0 ? r.shares + " 股" : "—";
+          document.getElementById("act-" + r.code).textContent =
+            "¥" + fmt(r.actual);
+          document.getElementById("status-" + r.code).innerHTML =
+            r.lots >= 1
+              ? `<span class="tag tag-ok">${r.lots}手</span>`
+              : `<span class="tag tag-warn">差¥${fmt(r.shortfall)}</span>`;
+        });
+
+        renderValuation();
+
+        const gap = rows.reduce((s, r) => s + Math.max(0, r.shortfall), 0);
+        const minAll = Math.max(...rows.map((r) => r.minTotal));
+        const actual = rows.reduce((s, r) => s + r.actual, 0);
+        const left = total - actual;
+        const allOk = rows.every((r) => r.lots >= 1);
+
+        document.getElementById("sTotal").textContent = "¥" + fmt(total);
+        document.getElementById("sActual").textContent = "¥" + fmt(actual);
+        document.getElementById("sActual").className =
+          "val " + (allOk ? "ok" : "warn");
+        document.getElementById("sLeft").textContent = "¥" + fmt(left);
+        document.getElementById("sMin").textContent = "¥" + fmt(minAll);
+        document.getElementById("sGap").textContent =
+          gap > 0 ? "¥" + fmt(gap) : "无需补";
+        document.getElementById("sGap").className =
+          "val " + (gap > 0 ? "bad" : "ok");
+
+        const stopList = rows
+          .filter((r) => r.val?.level === "stop")
+          .map((r) => r.code);
+        const buyList = rows
+          .filter((r) => r.val?.level === "buy")
+          .map((r) => r.code);
+
+        let allocMsg;
+        if (total < minAll) {
+          allocMsg = `⚠ 总额偏低：至少需 ¥${fmt(minAll)}（还差 ¥${fmt(minAll - total)}）`;
+          setBanner("warn", allocMsg);
+        } else if (!allOk) {
+          const bad = rows
+            .filter((r) => r.lots < 1)
+            .map((r) => r.code + "差¥" + fmt(r.shortfall))
+            .join("、");
+          setBanner("warn", `⚠ 部分不足1手（${bad}）`);
+        } else {
+          let extra = "";
+          if (stopList.length)
+            extra = ` · 估值提示：${stopList.join("/")} 高估建议暂停，可把钱留给${buyList.length ? buyList.join("/") : "低估值品种"}`;
+          else if (buyList.length)
+            extra = ` · 估值提示：${buyList.join("/")} 处于低估可积极买`;
+          setBanner("ok", `✓ 分配可行，剩余 ¥${fmt(left)}${extra}`);
+        }
+      }
+
+      initTable();
+      refreshAll(false);
+      setInterval(() => refreshAll(false), REFRESH_MS);
+
+      document.getElementById("totalAmount").addEventListener("input", (e) => {
+        e.target.value = e.target.value.replace(/[^\d]/g, "");
+        updateAmountLive();
+        calculate();
+      });
+      document.getElementById("totalAmount").addEventListener("blur", (e) => {
+        const n = parseAmount(e.target.value);
+        e.target.value =
+          n > 0 ? n.toLocaleString("zh-CN", { maximumFractionDigits: 0 }) : "";
+        updateAmountLive();
+      });
+      document.getElementById("totalAmount").addEventListener("focus", (e) => {
+        e.target.value = parseAmount(e.target.value) || "";
+        e.target.select();
+      });
+      document
+        .getElementById("totalAmount")
+        .addEventListener("keydown", (e) => {
+          if (e.key === "Enter") {
+            e.target.blur();
+            calculate();
+          }
+        });
+      updateAmountLive();
+    </script>
+  </body>
+</html>
