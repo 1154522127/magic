@@ -390,12 +390,43 @@
       }
 
       .tag {
-        display: inline-block;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
         padding: 2px 6px;
         border-radius: 4px;
         font-size: 0.68rem;
         font-weight: 700;
         white-space: nowrap;
+      }
+      .tag-rank {
+        font-size: 0.6rem;
+        font-weight: 800;
+        opacity: 0.7;
+      }
+      .tag-s5 {
+        background: rgba(34, 197, 94, 0.24);
+        color: #4ade80;
+      }
+      .tag-s4 {
+        background: rgba(34, 197, 94, 0.15);
+        color: var(--success);
+      }
+      .tag-s3 {
+        background: rgba(59, 130, 246, 0.15);
+        color: #93c5fd;
+      }
+      .tag-s2 {
+        background: rgba(245, 158, 11, 0.15);
+        color: var(--warning);
+      }
+      .tag-s1 {
+        background: rgba(239, 68, 68, 0.18);
+        color: #f87171;
+      }
+      .tag-na {
+        background: rgba(139, 156, 179, 0.12);
+        color: var(--muted);
       }
       .tag-ok {
         background: rgba(34, 197, 94, 0.15);
@@ -405,17 +436,26 @@
         background: rgba(245, 158, 11, 0.15);
         color: var(--warning);
       }
-      .tag-buy {
-        background: rgba(34, 197, 94, 0.22);
-        color: #4ade80;
+
+      .signal-legend {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 5px 10px;
+        padding: 5px 10px;
+        border-top: 1px solid var(--border);
       }
-      .tag-stop {
-        background: rgba(239, 68, 68, 0.18);
-        color: #f87171;
+      .signal-legend .legend-title {
+        font-size: 0.62rem;
+        font-weight: 700;
+        color: var(--muted);
+        margin-right: 2px;
       }
-      .tag-hold {
-        background: rgba(59, 130, 246, 0.15);
-        color: #93c5fd;
+      .signal-legend .legend-hint {
+        font-size: 0.58rem;
+        color: var(--muted);
+        opacity: 0.85;
       }
 
       .prem {
@@ -549,6 +589,14 @@
         .table-scroll {
           -webkit-overflow-scrolling: touch;
         }
+        .signal-legend {
+          gap: 5px 6px;
+          padding: 8px;
+        }
+        .signal-legend .legend-hint {
+          width: 100%;
+          text-align: center;
+        }
         .price-val {
           font-size: 0.82rem;
         }
@@ -627,6 +675,14 @@
             </thead>
             <tbody id="mainBody"></tbody>
           </table>
+        </div>
+        <div class="signal-legend">
+          <span class="legend-title">买入阶梯</span>
+          <span class="tag tag-s5">积极买入</span>
+          <span class="tag tag-s4">正常买入</span>
+          <span class="tag tag-s3">可以买入</span>
+          <span class="tag tag-s2">减半买入</span>
+          <span class="tag tag-s1">暂停买入</span>
         </div>
         <div class="table-foot">
           PE/PB=指数估值 · 溢价率=现价高于参考净值的幅度 · QDII&gt;3%慎买 ·
@@ -995,34 +1051,48 @@
         return div + roe * 0.25 + ey * 0.15 - (peP - 50) * 0.06;
       }
 
+      const SIGNAL_MAP = {
+        积极买入: { tagCls: "tag-s5", rank: 5 },
+        正常买入: { tagCls: "tag-s4", rank: 4 },
+        可以买入: { tagCls: "tag-s3", rank: 3 },
+        减半买入: { tagCls: "tag-s2", rank: 2 },
+        暂停买入: { tagCls: "tag-s1", rank: 1 },
+      };
+
+      function renderSignalTag(action) {
+        const s = SIGNAL_MAP[action];
+        if (!s) return `<span class="tag tag-na">${action}</span>`;
+        return `<span class="tag ${s.tagCls}">${action}</span>`;
+      }
+
       function signalFromPercentile(pct, divBonus) {
         let action, level, tagCls;
         if (pct < 30) {
           action = "积极买入";
           level = "buy";
-          tagCls = "tag-buy";
+          tagCls = "tag-s5";
         } else if (pct < 50) {
           action = "正常买入";
           level = "ok";
-          tagCls = "tag-ok";
+          tagCls = "tag-s4";
         } else if (pct < 70) {
           action = "可以买入";
           level = "ok";
-          tagCls = "tag-ok";
+          tagCls = "tag-s3";
         } else if (pct < 85) {
           action = "减半买入";
           level = "warn";
-          tagCls = "tag-warn";
+          tagCls = "tag-s2";
         } else {
           action = "暂停买入";
           level = "stop";
-          tagCls = "tag-stop";
+          tagCls = "tag-s1";
         }
 
         if (divBonus && pct < 75 && level === "warn") {
           action = "可以买入";
           level = "ok";
-          tagCls = "tag-ok";
+          tagCls = "tag-s3";
         }
         return { action, level, tagCls };
       }
@@ -1043,10 +1113,10 @@
         const score = pbP * 0.6 + peP * 0.4;
 
         let sig = signalFromPercentile(score, false);
-        if (pbP >= 90) sig = downgrade(sig, "减半买入", "warn", "tag-warn");
-        if (pbP >= 95 || score >= 85) sig = { action: "暂停买入", level: "stop", tagCls: "tag-stop" };
-        if (peg > 1.8 && score >= 65) sig = downgrade(sig, "减半买入", "warn", "tag-warn");
-        if (erp < 0 && score >= 60) sig = downgrade(sig, "减半买入", "warn", "tag-warn");
+        if (pbP >= 90) sig = downgrade(sig, "减半买入", "warn", "tag-s2");
+        if (pbP >= 95 || score >= 85) sig = { action: "暂停买入", level: "stop", tagCls: "tag-s1" };
+        if (peg > 1.8 && score >= 65) sig = downgrade(sig, "减半买入", "warn", "tag-s2");
+        if (erp < 0 && score >= 60) sig = downgrade(sig, "减半买入", "warn", "tag-s2");
 
         const zone = zoneFromPct(Math.max(pbP, peP, score));
         const peVal = v.pe ? v.pe.toFixed(1) : "—";
@@ -1064,11 +1134,11 @@
         const erp = equityRiskPremium(v);
 
         let sig = signalFromPercentile(peP, div > 2.5);
-        if (bogle < 2 && peP > 70) sig = { action: "暂停买入", level: "stop", tagCls: "tag-stop" };
-        else if (bogle < 4 && peP > 75) sig = downgrade(sig, "减半买入", "warn", "tag-warn");
-        else if (bogle > 6 && peP < 50) sig = { action: "积极买入", level: "buy", tagCls: "tag-buy" };
-        if (pbP > 95) sig = downgrade(sig, "减半买入", "warn", "tag-warn");
-        if (erp < -1 && peP > 65) sig = downgrade(sig, "减半买入", "warn", "tag-warn");
+        if (bogle < 2 && peP > 70) sig = { action: "暂停买入", level: "stop", tagCls: "tag-s1" };
+        else if (bogle < 4 && peP > 75) sig = downgrade(sig, "减半买入", "warn", "tag-s2");
+        else if (bogle > 6 && peP < 50) sig = { action: "积极买入", level: "buy", tagCls: "tag-s5" };
+        if (pbP > 95) sig = downgrade(sig, "减半买入", "warn", "tag-s2");
+        if (erp < -1 && peP > 65) sig = downgrade(sig, "减半买入", "warn", "tag-s2");
 
         const zone = zoneFromPct(Math.max(peP, pbP));
         const peVal = v.pe ? v.pe.toFixed(1) : "—";
@@ -1090,12 +1160,12 @@
         // 综合分定主调；单项极高仅在「可买」阶段加码降级，不另设暂停线
         if (sig.level === "buy" || sig.level === "ok") {
           if (peP > 88 || pbP > 92)
-            sig = downgrade(sig, "减半买入", "warn", "tag-warn");
+            sig = downgrade(sig, "减半买入", "warn", "tag-s2");
           else if (peP > 82 && pbP > 82)
-            sig = downgrade(sig, "减半买入", "warn", "tag-warn");
+            sig = downgrade(sig, "减半买入", "warn", "tag-s2");
         }
         if (roe < 8 && score > 70)
-          sig = downgrade(sig, "减半买入", "warn", "tag-warn");
+          sig = downgrade(sig, "减半买入", "warn", "tag-s2");
 
         const zone = zoneFromPct(score);
         const peVal = v.pe ? v.pe.toFixed(1) : "—";
@@ -1115,11 +1185,11 @@
 
         let sig = signalFromPercentile(score, div > 4);
         if (div > 5 && pbP < 75) {
-          if (sig.level === "stop") sig = { action: "减半买入", level: "warn", tagCls: "tag-warn" };
-          else if (sig.level === "warn") sig = { action: "可以买入", level: "ok", tagCls: "tag-ok" };
-          else if (sig.level === "ok") sig = { action: "正常买入", level: "ok", tagCls: "tag-ok" };
+          if (sig.level === "stop") sig = { action: "减半买入", level: "warn", tagCls: "tag-s2" };
+          else if (sig.level === "warn") sig = { action: "可以买入", level: "ok", tagCls: "tag-s3" };
+          else if (sig.level === "ok") sig = { action: "正常买入", level: "ok", tagCls: "tag-s4" };
         }
-        if (div > 6 && pbP < 60) sig = { action: "积极买入", level: "buy", tagCls: "tag-buy" };
+        if (div > 6 && pbP < 60) sig = { action: "积极买入", level: "buy", tagCls: "tag-s5" };
 
         const zone = zoneFromPct(pbP);
         const peVal = v.pe ? v.pe.toFixed(1) : "—";
@@ -1134,17 +1204,17 @@
         let sig, metrics, detail, zone;
 
         if (avgScore >= 75 || highCount >= 3) {
-          sig = { action: "可以买入", level: "ok", tagCls: "tag-ok" };
+          sig = { action: "可以买入", level: "ok", tagCls: "tag-s3" };
           zone = "合理区";
           metrics = `股综<b>${avgScore.toFixed(0)}%</b> 偏高<b>${highCount}</b>只<br>仓位加权·股贵债优`;
           detail = `${zone}·股债比价法`;
         } else if (avgScore <= 40 || lowCount >= 2) {
-          sig = { action: "减半买入", level: "warn", tagCls: "tag-warn" };
+          sig = { action: "减半买入", level: "warn", tagCls: "tag-s2" };
           zone = "偏低区";
           metrics = `股综<b>${avgScore.toFixed(0)}%</b> 低估<b>${lowCount}</b>只<br>仓位加权·减债增股`;
           detail = `${zone}·股债比价法`;
         } else {
-          sig = { action: "正常买入", level: "ok", tagCls: "tag-hold" };
+          sig = { action: "正常买入", level: "ok", tagCls: "tag-s4" };
           zone = "合理区";
           metrics = `股综<b>${avgScore.toFixed(0)}%</b><br>仓位加权·维持比例`;
           detail = `${zone}·股债比价法`;
@@ -1170,7 +1240,7 @@
             results[p.code] = {
               action: "暂无数据",
               level: "na",
-              tagCls: "tag-warn",
+              tagCls: "tag-na",
               metrics: "—",
               detail: "等待估值",
             };
@@ -1208,13 +1278,13 @@
         if (isQdii && pct > 5) {
           r.action = "暂停买入";
           r.level = "stop";
-          r.tagCls = "tag-stop";
+          r.tagCls = "tag-s1";
           r.detail = (r.detail || "") + ` · 溢价${pct.toFixed(1)}%过高`;
         } else if (isQdii && pct > 3) {
           if (r.level === "buy" || r.level === "ok") {
             r.action = "减半买入";
             r.level = "warn";
-            r.tagCls = "tag-warn";
+            r.tagCls = "tag-s2";
           }
           r.detail = (r.detail || "") + ` · 溢价${pct.toFixed(1)}%偏高`;
         } else if (pct > 2 && !isQdii) {
@@ -1235,7 +1305,7 @@
           document.getElementById("val-" + p.code).innerHTML =
             r.metrics + `<br><span style="opacity:.7">${r.detail}</span>`;
           document.getElementById("adv-" + p.code).innerHTML =
-            `<span class="tag ${r.tagCls}">${r.action}</span>`;
+            renderSignalTag(r.action);
           if (r.level === "buy" || r.level === "ok") buyN++;
           else if (r.level === "warn") warnN++;
           else if (r.level === "stop") stopN++;
