@@ -244,7 +244,8 @@
         grid-template-columns: repeat(5, 1fr);
       }
       .lot-bar .stat .val {
-        color: var(--accent);
+        color: var(--text);
+        font-size: 0.85rem;
       }
       .lot-foot {
         display: flex;
@@ -266,6 +267,12 @@
       }
       .lot-wrap {
         position: relative;
+      }
+      .lot-title {
+        font-size: 0.65rem;
+        color: var(--muted);
+        letter-spacing: 0.02em;
+        margin-bottom: 5px;
       }
       .val.ok {
         color: var(--success);
@@ -345,6 +352,9 @@
         border-bottom: 1px solid var(--border);
         white-space: nowrap;
       }
+      thead th:first-child {
+        text-align: center;
+      }
       tbody td {
         text-align: center;
         padding: 7px 4px;
@@ -358,18 +368,18 @@
         background: rgba(59, 130, 246, 0.06);
       }
       td.left {
-        text-align: left;
+        text-align: center;
+        white-space: nowrap;
       }
 
-      .code {
-        font-family: "SF Mono", Menlo, monospace;
-        font-weight: 700;
-        color: var(--accent);
-        font-size: 0.8rem;
-      }
       .name {
-        color: var(--muted);
-        font-size: 0.68rem;
+        display: block;
+        width: 100%;
+        color: #b4c0d0;
+        font-size: 0.78rem;
+        font-weight: 500;
+        white-space: nowrap;
+        text-align: center;
       }
       .ratio-badge {
         display: inline-block;
@@ -695,6 +705,10 @@
         .stat .val {
           font-size: 0.82rem;
         }
+        .lot-title {
+          grid-column: 1 / -1;
+          margin-bottom: 0;
+        }
         .lot-wrap {
           display: grid;
           grid-template-columns: repeat(2, 1fr);
@@ -715,7 +729,8 @@
           font-size: 0.68rem;
         }
         .lot-foot-amt {
-          font-size: 0.88rem;
+          font-size: 0.92rem;
+          color: var(--warning);
         }
 
         .banner {
@@ -732,6 +747,15 @@
         table {
           font-size: 0.72rem;
           min-width: 860px;
+        }
+        thead th:first-child,
+        td.left {
+          min-width: 5.4em;
+          text-align: center;
+        }
+        .name {
+          font-size: 0.72rem;
+          color: #b4c0d0;
         }
         .table-scroll {
           -webkit-overflow-scrolling: touch;
@@ -806,7 +830,7 @@
           <table>
             <thead>
               <tr>
-                <th>代码/名称</th>
+                <th>名称</th>
                 <th>溢价/涨跌</th>
                 <th>估值指标</th>
                 <th>盈亏</th>
@@ -860,6 +884,7 @@
           </div>
         </div>
         <div class="lot-wrap">
+          <div class="lot-title">最低仓位配比</div>
           <div class="summary-bar lot-bar" id="sLotBar">—</div>
           <div class="lot-foot" id="sLotFoot" hidden>
             <span class="lot-foot-lbl">合计</span>
@@ -1034,7 +1059,7 @@
           const h = saved[p.code] || {};
           return `
         <tr data-code="${p.code}">
-          <td class="left"><div class="code">${p.code}</div><div class="name">${p.name}</div></td>
+          <td class="left"><div class="name">${p.name}</div></td>
           <td class="cell-stack quote-cell">
             <span class="prem na" id="prem-${p.code}">—</span>
             <span class="chg flat" id="chg-${p.code}">—</span>
@@ -1643,7 +1668,7 @@
               resolve(
                 PORTFOLIO.map((p) => {
                   const raw = window["hq_str_sh" + p.code];
-                  if (!raw) throw new Error(p.code);
+                  if (!raw) throw new Error(p.name);
                   const a = raw.split(",");
                   const price = parseFloat(a[3]);
                   const prev = parseFloat(a[2]);
@@ -1867,14 +1892,14 @@
         const oneLotEach = renderLotPrices(rows);
         const minAll = oneLotEach;
         const allOk = newCash <= 0 || rows.every((r) => r.lots >= 1);
-        const overList = rows.filter((r) => r.gap < -1).map((r) => r.code);
+        const overList = rows.filter((r) => r.gap < -1).map((r) => r.name);
         const underList = rows
           .filter((r) => r.gap > 1)
           .sort((a, b) => b.gap - a.gap)
-          .map((r) => r.code);
+          .map((r) => r.name);
         const stopList = rows
           .filter((r) => r.val?.level === "stop" && r.gap > 1)
-          .map((r) => r.code);
+          .map((r) => r.name);
 
         document.getElementById("sTotal").textContent =
           newCash > 0 ? "¥" + fmt(newCash) : "—";
@@ -1903,7 +1928,7 @@
         } else if (newCash > 0 && !allOk) {
           const bad = rows
             .filter((r) => r.lots < 1)
-            .map((r) => r.code + "差¥" + fmt(r.shortfall))
+            .map((r) => r.name + "差¥" + fmt(r.shortfall))
             .join("、");
           setBanner("warn", `⚠ 部分不足1手（${bad}）`);
         } else if (newCash > 0) {
