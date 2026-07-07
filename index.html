@@ -222,7 +222,7 @@
 
       .summary-bar {
         display: grid;
-        grid-template-columns: repeat(6, 1fr);
+        grid-template-columns: repeat(4, 1fr);
         gap: 5px;
       }
       .stat {
@@ -239,6 +239,33 @@
       .stat .val {
         font-size: 0.88rem;
         font-weight: 700;
+      }
+      .summary-bar.lot-bar {
+        grid-template-columns: repeat(5, 1fr);
+      }
+      .lot-bar .stat .val {
+        color: var(--accent);
+      }
+      .lot-foot {
+        display: flex;
+        justify-content: flex-end;
+        align-items: baseline;
+        gap: 8px;
+        margin-top: 4px;
+        padding-right: 2px;
+      }
+      .lot-foot-lbl {
+        font-size: 0.65rem;
+        color: var(--muted);
+      }
+      .lot-foot-amt {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: var(--warning);
+        font-variant-numeric: tabular-nums;
+      }
+      .lot-wrap {
+        position: relative;
       }
       .val.ok {
         color: var(--success);
@@ -668,6 +695,28 @@
         .stat .val {
           font-size: 0.82rem;
         }
+        .lot-wrap {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 6px;
+        }
+        .summary-bar.lot-bar {
+          display: contents;
+        }
+        .lot-foot {
+          display: flex;
+          align-items: end;
+          justify-content: center;
+          margin-top: 0;
+          padding: 8px;
+          gap: 6px;
+        }
+        .lot-foot-lbl {
+          font-size: 0.68rem;
+        }
+        .lot-foot-amt {
+          font-size: 0.88rem;
+        }
 
         .banner {
           white-space: normal;
@@ -809,13 +858,12 @@
             <div class="lbl">浮动盈亏</div>
             <div class="val" id="sPnl">—</div>
           </div>
-          <div class="stat">
-            <div class="lbl">剩余总额</div>
-            <div class="val" id="sLeft">—</div>
-          </div>
-          <div class="stat">
-            <div class="lbl">最低持仓</div>
-            <div class="val warn" id="sOneLot">—</div>
+        </div>
+        <div class="lot-wrap">
+          <div class="summary-bar lot-bar" id="sLotBar">—</div>
+          <div class="lot-foot" id="sLotFoot" hidden>
+            <span class="lot-foot-lbl">合计</span>
+            <span class="lot-foot-amt" id="sLotFootAmt">—</span>
           </div>
         </div>
       </div>
@@ -1661,6 +1709,41 @@
         }
       }
 
+      function calcOneSetPrices(rows) {
+        const setTotal = Math.max(0, ...rows.map((r) => r.minTotal));
+        if (setTotal <= 0) return { setTotal: 0, items: [], actualTotal: 0 };
+        const items = rows.map((r) => {
+          const alloc = setTotal * r.ratio;
+          const buy =
+            r.minLot > 0 ? Math.floor(alloc / r.minLot) * r.minLot : 0;
+          return { code: r.code, name: r.name, buy, price: r.price };
+        });
+        const actualTotal = items.reduce((s, i) => s + i.buy, 0);
+        return { setTotal, items, actualTotal };
+      }
+
+      function renderLotPrices(rows) {
+        const barEl = document.getElementById("sLotBar");
+        const footEl = document.getElementById("sLotFoot");
+        const footAmtEl = document.getElementById("sLotFootAmt");
+        const { setTotal, items, actualTotal } = calcOneSetPrices(rows);
+        if (setTotal <= 0) {
+          barEl.textContent = "—";
+          footAmtEl.textContent = "—";
+          footEl.hidden = true;
+          return setTotal;
+        }
+        footAmtEl.textContent = "¥" + fmt(actualTotal);
+        footEl.hidden = false;
+        barEl.innerHTML = items
+          .map(
+            (i) =>
+              `<div class="stat"><div class="lbl">${i.name}</div><div class="val">¥${fmt(i.buy)}</div></div>`,
+          )
+          .join("");
+        return setTotal;
+      }
+
       function calculate() {
         const newCash = getTotalAmount();
         if (!PORTFOLIO.every((p) => getPrice(p.code) > 0)) {
@@ -1781,7 +1864,7 @@
 
         const totalPnl = costTotal > 0 ? holdingsTotal - costTotal : null;
         const left = newCash > 0 ? newCash - costTotal : 0;
-        const oneLotEach = Math.max(0, ...rows.map((r) => r.minTotal));
+        const oneLotEach = renderLotPrices(rows);
         const minAll = oneLotEach;
         const allOk = newCash <= 0 || rows.every((r) => r.lots >= 1);
         const overList = rows.filter((r) => r.gap < -1).map((r) => r.code);
@@ -1809,21 +1892,6 @@
           pnlStat.textContent = "—";
           pnlStat.className = "val";
         }
-        const leftEl = document.getElementById("sLeft");
-        if (newCash > 0) {
-          if (left >= 0) {
-            leftEl.textContent = "¥" + fmt(left);
-            leftEl.className = "val";
-          } else {
-            leftEl.textContent = "超配 ¥" + fmt(Math.abs(left));
-            leftEl.className = "val warn";
-          }
-        } else {
-          leftEl.textContent = "—";
-          leftEl.className = "val";
-        }
-        document.getElementById("sOneLot").textContent =
-          oneLotEach > 0 ? "¥" + fmt(oneLotEach) : "—";
 
         if (newCash <= 0 && !hasHoldings) {
           setBanner("warn", "请填写持仓或本次投入金额");
