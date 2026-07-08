@@ -7,6 +7,7 @@
       content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1"
     />
     <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta
       name="apple-mobile-web-app-status-bar-style"
       content="black-translucent"
@@ -337,6 +338,7 @@
       table {
         width: 100%;
         border-collapse: collapse;
+        table-layout: fixed;
         font-size: 0.76rem;
       }
       thead th {
@@ -515,13 +517,45 @@
       }
 
       .val-text {
-        font-size: 0.68rem;
+        width: 27ch;
+        max-width: 27ch;
+        min-width: 0;
+        padding: 4px 2px;
+        text-align: center;
+        vertical-align: middle;
+        font-size: 0.62rem;
         color: var(--muted);
-        line-height: 1.3;
+        line-height: 1.25;
+        font-variant-numeric: tabular-nums;
+        overflow-x: hidden;
+        overflow-y: visible;
+        box-sizing: border-box;
       }
       .val-text b {
         color: var(--text);
         font-weight: 600;
+      }
+      .val-line {
+        white-space: nowrap;
+        text-align: center;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .val-detail {
+        margin-top: 2px;
+        font-size: 0.54rem;
+        line-height: 1.2;
+        word-break: break-all;
+        opacity: 0.75;
+        white-space: normal;
+        text-align: center;
+      }
+      .val-detail-sub {
+        margin-top: 1px;
+      }
+
+      table col.col-val {
+        width: 27ch;
       }
 
       .tag {
@@ -746,7 +780,18 @@
 
         table {
           font-size: 0.72rem;
-          min-width: 860px;
+          min-width: 740px;
+        }
+        .val-text {
+          width: 22ch;
+          max-width: 22ch;
+          font-size: 0.58rem;
+        }
+        table col.col-val {
+          width: 22ch;
+        }
+        .val-detail {
+          font-size: 0.52rem;
         }
         thead th:first-child,
         td.left {
@@ -778,7 +823,7 @@
     <div class="app">
       <div class="topbar">
         <div class="amount-wrap">
-          <label for="totalAmount">本次投入</label>
+          <label for="totalAmount">投入总额</label>
           <div class="amount-stepper">
             <button
               type="button"
@@ -828,6 +873,19 @@
       <div class="table-wrap">
         <div class="table-scroll">
           <table>
+            <colgroup>
+              <col />
+              <col />
+              <col class="col-val" />
+              <col />
+              <col />
+              <col />
+              <col />
+              <col />
+              <col />
+              <col />
+              <col />
+            </colgroup>
             <thead>
               <tr>
                 <th>名称</th>
@@ -855,15 +913,16 @@
           <span class="tag tag-s1">暂停买入</span>
         </div>
         <div class="table-foot">
-          占比=成本值/本次投入 · 目标值=本次投入×比例 · 待补=目标值−成本值 ·
-          PE/PB=指数估值 · 溢价率=现价高于参考净值的幅度 · 仅供参考
+          占比=成本值/投入总额 · 目标值=投入总额×比例 · 待补=目标值−成本值 ·
+          PE/PB=历史分位 · 溢价=现价高于IOPV ·
+          ERP=盈利收益率−国债(美股US10Y/A股CN10Y) · 仅供参考
         </div>
       </div>
 
       <div class="bottom-area">
         <div class="banner ok" id="banner">等待数据…</div>
         <div class="banner info" id="valBanner">
-          估值加载中…（纳指成长法·标普博格法·A股双分位·股息PB法·股债比价）
+          估值加载中…（成长科技·博格预期·A股双分位·股息PB·股债比价+收益率）
         </div>
         <div class="summary-bar">
           <div class="stat">
@@ -917,9 +976,12 @@
           name: "中证A500",
           ratio: 0.17,
           secid: "1.563360",
-          indexCode: "SH000905",
+          indexCode: "SH000510",
+          indexFallback: {
+            blend: ["SH000300", "SH000905"],
+            weights: [0.55, 0.45],
+          },
           method: "a_share",
-          proxy: "中证500",
         },
         {
           code: "515450",
@@ -947,6 +1009,19 @@
       let valMap = {};
       let valDate = "";
       let premiumMap = {};
+      const SIGNAL_HISTORY_KEY = "magic_signal_history";
+      const FX_HISTORY_KEY = "magic_usdcny_hist";
+      const MACRO_CACHE_KEY = "magic_macro_cache";
+      const MACRO_CACHE_MAX_AGE = 7 * 86400000;
+      const US_BOND_YIELD_DEFAULT = 4.3;
+      const FX_REF_LOW = 6.3;
+      const FX_REF_HIGH = 7.25;
+      let macroCtx = {
+        bondYieldPct: null,
+        usBondYieldPct: null,
+        usdcny: null,
+        usdcnyPct: null,
+      };
 
       function fmt(n) {
         return n.toLocaleString("zh-CN", {
@@ -1243,22 +1318,7 @@
         };
       }
 
-      async function fetchValuationData() {
-        // file:// 打开时蛋卷接口会被 CORS 拦截，直接用 GitHub 镜像
-        if (!IS_FILE_PROTOCOL) {
-          try {
-            const r = await fetch(
-              "https://danjuanfunds.com/djapi/index_eva/dj",
-              {
-                headers: {
-                  Referer: "https://danjuanfunds.com/djmodule/value-center",
-                },
-              },
-            );
-            if (r.ok) return parseValJson(await r.json());
-          } catch (_) {}
-        }
-
+      async function fetchValuationMirror() {
         const tried = new Set();
         const latest = await fetchLatestDjevaDate();
         if (latest) {
@@ -1266,12 +1326,39 @@
           const hit = await fetchDjevaJson(latest);
           if (hit) return hit;
         }
-
         for (const d of recentDates(12)) {
           if (tried.has(d)) continue;
           const hit = await fetchDjevaJson(d);
           if (hit) return hit;
         }
+        return null;
+      }
+
+      async function fetchValuationData() {
+        if (IS_FILE_PROTOCOL) {
+          const mirror = await fetchValuationMirror();
+          if (mirror) return mirror;
+        }
+
+        const apiUrls = [
+          "https://danjuanfunds.com/djapi/index_eva/dj",
+          "https://danjuanapp.com/djapi/index_eva/dj",
+        ];
+        const apiHeaders = {
+          Referer: "https://danjuanfunds.com/djmodule/value-center",
+          "User-Agent":
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+        };
+
+        for (const url of apiUrls) {
+          try {
+            const r = await fetchWithTimeout(url, 8000, { headers: apiHeaders });
+            if (r.ok) return parseValJson(await r.json());
+          } catch (_) {}
+        }
+
+        const mirror = await fetchValuationMirror();
+        if (mirror) return mirror;
         throw new Error("估值数据获取失败");
       }
 
@@ -1297,6 +1384,441 @@
         };
       }
 
+      function blendIndexVal(a, b, wa, wb) {
+        const wSum = wa + wb;
+        const mix = (key) => {
+          const av = a[key],
+            bv = b[key];
+          if (av == null && bv == null) return null;
+          if (av == null) return bv;
+          if (bv == null) return av;
+          return (av * wa + bv * wb) / wSum;
+        };
+        return {
+          index_code: a.index_code,
+          name: "合成",
+          pe: mix("pe"),
+          pb: mix("pb"),
+          pe_percentile: mix("pe_percentile"),
+          pb_percentile: mix("pb_percentile"),
+          roe: mix("roe"),
+          yeild: mix("yeild"),
+          peg: mix("peg"),
+          bond_yeild: a.bond_yeild ?? b.bond_yeild,
+          pe_over_history: mix("pe_over_history"),
+          pb_over_history: mix("pb_over_history"),
+        };
+      }
+
+      function resolveIndexVal(p, map) {
+        if (p.indexCode && map[p.indexCode])
+          return { v: map[p.indexCode], proxy: null };
+        const fb = p.indexFallback;
+        if (fb?.blend?.length === 2) {
+          const [c0, c1] = fb.blend;
+          const left = map[c0],
+            right = map[c1];
+          if (left && right) {
+            const [wa, wb] = fb.weights || [0.5, 0.5];
+            const leftName = left.name || c0;
+            const rightName = right.name || c1;
+            return {
+              v: blendIndexVal(left, right, wa, wb),
+              proxy: leftName + "+" + rightName,
+            };
+          }
+        }
+        return { v: null, proxy: null };
+      }
+
+      function extractBondYield(map) {
+        for (const v of Object.values(map)) {
+          if (v?.bond_yeild > 0) return v.bond_yeild * 100;
+        }
+        return 4;
+      }
+
+      function loadMacroCache() {
+        try {
+          const c = JSON.parse(localStorage.getItem(MACRO_CACHE_KEY) || "null");
+          if (!c || Date.now() - (c.ts || 0) > MACRO_CACHE_MAX_AGE) return null;
+          return c;
+        } catch {
+          return null;
+        }
+      }
+
+      function saveMacroCache(patch) {
+        try {
+          const prev = loadMacroCache() || {};
+          localStorage.setItem(
+            MACRO_CACHE_KEY,
+            JSON.stringify({ ...prev, ...patch, ts: Date.now() }),
+          );
+        } catch (_) {}
+      }
+
+      function applyMacroCache() {
+        const c = loadMacroCache();
+        if (!c) return;
+        if (c.usBondYieldPct != null)
+          macroCtx.usBondYieldPct = c.usBondYieldPct;
+        if (c.usdcny != null) {
+          macroCtx.usdcny = c.usdcny;
+          if (c.usdcnyPct != null) macroCtx.usdcnyPct = c.usdcnyPct;
+          else ensureUsdcnyPct();
+        } else if (c.usdcnyPct != null) {
+          macroCtx.usdcnyPct = c.usdcnyPct;
+        }
+      }
+
+      function ensureUsdcnyPct() {
+        if (macroCtx.usdcny == null) return null;
+        if (macroCtx.usdcnyPct != null) return macroCtx.usdcnyPct;
+        try {
+          const hist = JSON.parse(localStorage.getItem(FX_HISTORY_KEY) || "[]");
+          const src = hist.length ? hist : fxHistMem;
+          const pct = usdcnyPercentile(macroCtx.usdcny, src);
+          if (pct != null) macroCtx.usdcnyPct = pct;
+          return pct;
+        } catch {
+          const pct = usdcnyPercentile(macroCtx.usdcny, fxHistMem);
+          if (pct != null) macroCtx.usdcnyPct = pct;
+          return pct;
+        }
+      }
+
+      function ensureMacroUsdcny() {
+        applyMacroCache();
+        ensureUsdcnyPct();
+      }
+
+      function usdMacroInfo() {
+        ensureMacroUsdcny();
+        const c = loadMacroCache();
+        const rate = macroCtx.usdcny ?? c?.usdcny ?? null;
+        const pct =
+          macroCtx.usdcnyPct ??
+          c?.usdcnyPct ??
+          (rate != null ? ensureUsdcnyPct() : null);
+        if (rate == null || pct == null) return null;
+        return { rate, pct };
+      }
+
+      function usdDetailExtra() {
+        const info = usdMacroInfo();
+        if (!info) return null;
+        const { rate, pct } = info;
+        const tone = pct >= 80 ? "偏强" : pct <= 20 ? "偏弱" : "中性";
+        return `· 美元${rate.toFixed(2)}(${pct.toFixed(0)}%${tone})`;
+      }
+
+      function isUsdStrong() {
+        const info = usdMacroInfo();
+        return info != null && info.pct >= 80;
+      }
+
+      function fetchJsonp(url) {
+        return new Promise((resolve) => {
+          const cb = "_jp" + Date.now();
+          const s = document.createElement("script");
+          let settled = false;
+          const done = (val) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            delete window[cb];
+            s.remove();
+            resolve(val ?? null);
+          };
+          const timer = setTimeout(() => done(null), 8000);
+          window[cb] = (data) => done(data);
+          s.onerror = () => done(null);
+          s.src =
+            url +
+            (url.includes("?") ? "&" : "?") +
+            "callback=" +
+            cb +
+            "&_=" +
+            Date.now();
+          document.body.appendChild(s);
+        });
+      }
+
+      function parseUsBondRows(rows) {
+        if (!Array.isArray(rows) || !rows.length) return null;
+        const y = Number(rows[rows.length - 1]?.c);
+        return Number.isFinite(y) && y > 0 && y < 20 ? y : null;
+      }
+
+      async function fetchUsBondYield() {
+        const json = await fetchJsonp(
+          "https://bond.finance.sina.com.cn/hq/gb/daily?symbol=US10YT",
+        );
+        const y = parseUsBondRows(json?.result?.data);
+        if (y != null) return y;
+        return loadMacroCache()?.usBondYieldPct ?? null;
+      }
+
+      function usBondYieldForErp() {
+        return macroCtx.usBondYieldPct ?? US_BOND_YIELD_DEFAULT;
+      }
+
+      let fxHistMem = [];
+
+      async function fetchWithTimeout(url, ms = 6000, init = {}) {
+        const ctrl = new AbortController();
+        const timer = setTimeout(() => ctrl.abort(), ms);
+        try {
+          return await fetch(url, { ...init, signal: ctrl.signal });
+        } finally {
+          clearTimeout(timer);
+        }
+      }
+
+      function loadQuoteScript(url, ms = 8000) {
+        return new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          let settled = false;
+          const done = (err) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            s.remove();
+            err ? reject(err) : resolve();
+          };
+          const timer = setTimeout(() => done(new Error("timeout")), ms);
+          s.onload = () => done(null);
+          s.onerror = () => done(new Error("script"));
+          s.src = url;
+          document.head.appendChild(s);
+        });
+      }
+
+      function tencentIopv(code, parts) {
+        const isQdii = code === "513100" || code === "513500";
+        const iopv78 = Number(parts[78]);
+        const iopv51 = Number(parts[51]);
+        if (isQdii && Number.isFinite(iopv78) && iopv78 > 0) return iopv78;
+        if (Number.isFinite(iopv51) && iopv51 > 0) return iopv51;
+        return undefined;
+      }
+
+      function parseTencentQuote(code) {
+        const raw = window["v_sh" + code];
+        if (!raw) return null;
+        const parts = String(raw).split("~");
+        const price = Number(parts[3]);
+        const pct = Number(parts[32]);
+        const iopv = tencentIopv(code, parts);
+        if (!Number.isFinite(price) || price <= 0) return null;
+        return {
+          f12: code,
+          f2: price,
+          f3: Number.isFinite(pct) ? pct : 0,
+          f441: iopv,
+        };
+      }
+
+      async function fetchTencent() {
+        const syms = PORTFOLIO.map((p) => "sh" + p.code).join(",");
+        await loadQuoteScript(
+          `https://qt.gtimg.cn/q=${syms}&_=${Date.now()}`,
+        );
+        const quotes = [];
+        for (const p of PORTFOLIO) {
+          const q = parseTencentQuote(p.code);
+          if (!q) throw new Error(p.name);
+          quotes.push(q);
+        }
+        return quotes;
+      }
+
+      async function fetchUsdcnyFromEM() {
+        try {
+          const r = await fetchWithTimeout(
+            "https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=133.USDCNH&fields=f2,f12,f14",
+          );
+          if (!r.ok) return null;
+          const j = await r.json();
+          const rate = Number(j?.data?.diff?.[0]?.f2);
+          if (!Number.isFinite(rate) || rate < 5 || rate > 9) return null;
+          return rate;
+        } catch {
+          return null;
+        }
+      }
+
+      function fetchUsdcnyFromSina() {
+        return new Promise((resolve) => {
+          const s = document.createElement("script");
+          s.src = `https://hq.sinajs.cn/list=fx_susdcny&_=${Date.now()}`;
+          let settled = false;
+          const done = (val) => {
+            if (settled) return;
+            settled = true;
+            clearTimeout(timer);
+            s.remove();
+            resolve(val ?? null);
+          };
+          const timer = setTimeout(() => done(null), 6000);
+          s.onload = () => {
+            try {
+              const raw = window.hq_str_fx_susdcny;
+              if (!raw) return done(null);
+              const rate = Number(raw.split(",")[1]);
+              done(Number.isFinite(rate) && rate > 0 ? rate : null);
+            } catch {
+              done(null);
+            }
+          };
+          s.onerror = () => done(null);
+          document.body.appendChild(s);
+        });
+      }
+
+      async function fetchUsdcnyFromCdn() {
+        try {
+          const r = await fetchWithTimeout(
+            "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/usd.json",
+          );
+          if (!r.ok) return null;
+          const j = await r.json();
+          const rate = Number(j?.usd?.cnh ?? j?.usd?.cny);
+          if (!Number.isFinite(rate) || rate < 5 || rate > 9) return null;
+          return rate;
+        } catch {
+          return null;
+        }
+      }
+
+      async function fetchUsdcnyFromErApi() {
+        try {
+          const r = await fetchWithTimeout(
+            "https://open.er-api.com/v6/latest/USD",
+          );
+          if (!r.ok) return null;
+          const j = await r.json();
+          const rate = Number(j?.rates?.CNY);
+          if (!Number.isFinite(rate) || rate < 5 || rate > 9) return null;
+          return rate;
+        } catch {
+          return null;
+        }
+      }
+
+      async function fetchUsdcny() {
+        const sources = IS_FILE_PROTOCOL
+          ? [
+              fetchUsdcnyFromCdn,
+              fetchUsdcnyFromErApi,
+              fetchUsdcnyFromSina,
+              fetchUsdcnyFromEM,
+            ]
+          : [
+              fetchUsdcnyFromEM,
+              fetchUsdcnyFromCdn,
+              fetchUsdcnyFromSina,
+              fetchUsdcnyFromErApi,
+            ];
+        for (const fn of sources) {
+          const rate = await fn();
+          if (rate != null) return rate;
+        }
+        return macroCtx.usdcny ?? loadMacroCache()?.usdcny ?? null;
+      }
+
+      function trackUsdcny(rate) {
+        const entry = { ts: Date.now(), rate };
+        try {
+          const hist = JSON.parse(localStorage.getItem(FX_HISTORY_KEY) || "[]");
+          const last = hist[hist.length - 1];
+          if (
+            last &&
+            Math.abs(last.rate - rate) < 0.001 &&
+            Date.now() - last.ts < 300000
+          ) {
+            fxHistMem = hist;
+            return hist;
+          }
+          hist.push(entry);
+          const cutoff = Date.now() - 60 * 86400000;
+          const trimmed = hist.filter((h) => h.ts > cutoff);
+          localStorage.setItem(FX_HISTORY_KEY, JSON.stringify(trimmed));
+          fxHistMem = trimmed;
+          return trimmed;
+        } catch {
+          const last = fxHistMem[fxHistMem.length - 1];
+          if (
+            last &&
+            Math.abs(last.rate - rate) < 0.001 &&
+            Date.now() - last.ts < 300000
+          ) {
+            return fxHistMem;
+          }
+          fxHistMem.push(entry);
+          const cutoff = Date.now() - 60 * 86400000;
+          fxHistMem = fxHistMem.filter((h) => h.ts > cutoff);
+          return fxHistMem;
+        }
+      }
+
+      function usdcnyPercentile(rate, hist) {
+        if (hist.length >= 15) {
+          const rates = hist.map((h) => h.rate).sort((a, b) => a - b);
+          const below = rates.filter((r) => r <= rate).length;
+          return (below / rates.length) * 100;
+        }
+        if (rate <= FX_REF_LOW) return 0;
+        if (rate >= FX_REF_HIGH) return 100;
+        return ((rate - FX_REF_LOW) / (FX_REF_HIGH - FX_REF_LOW)) * 100;
+      }
+
+      function syncUsdcny(rate) {
+        if (rate == null) return;
+        macroCtx.usdcny = rate;
+        const hist = trackUsdcny(rate);
+        const pct = usdcnyPercentile(rate, hist);
+        if (pct != null) {
+          macroCtx.usdcnyPct = pct;
+          saveMacroCache({ usdcny: rate, usdcnyPct: pct });
+        }
+      }
+
+      async function loadMacro() {
+        applyMacroCache();
+        const [rate, usBond] = await Promise.all([
+          fetchUsdcny(),
+          fetchUsBondYield(),
+        ]);
+        const fxRate = rate ?? macroCtx.usdcny;
+        if (fxRate != null) syncUsdcny(fxRate);
+        if (usBond != null) {
+          macroCtx.usBondYieldPct = usBond;
+          saveMacroCache({ usBondYieldPct: usBond });
+        }
+      }
+
+      function logSignalHistory(results) {
+        try {
+          const hist = JSON.parse(
+            localStorage.getItem(SIGNAL_HISTORY_KEY) || "[]",
+          );
+          const entry = {
+            date: valDate || new Date().toISOString().slice(0, 10),
+            ts: Date.now(),
+            signals: {},
+          };
+          PORTFOLIO.forEach((p) => {
+            if (results[p.code]) entry.signals[p.code] = results[p.code].action;
+          });
+          const kept = hist.filter((h) => h.date !== entry.date);
+          kept.push(entry);
+          if (kept.length > 90) kept.splice(0, kept.length - 90);
+          localStorage.setItem(SIGNAL_HISTORY_KEY, JSON.stringify(kept));
+        } catch (_) {}
+      }
+
       /* ── 估值模型（各品种独立） ── */
       function valPct(v, key) {
         return (v[key] || 0) * 100;
@@ -1311,8 +1833,9 @@
         return pe > 0 ? 100 / pe : 0;
       }
 
-      function equityRiskPremium(v) {
-        const bondY = (v.bond_yeild || 0.04) * 100;
+      function equityRiskPremium(v, bondYieldPct) {
+        const bondY =
+          bondYieldPct != null ? bondYieldPct : (v.bond_yeild || 0.04) * 100;
         return earningsYield(v) - bondY;
       }
 
@@ -1336,6 +1859,28 @@
         const s = SIGNAL_MAP[action];
         if (!s) return `<span class="tag tag-na">${action}</span>`;
         return `<span class="tag ${s.tagCls}">${action}</span>`;
+      }
+
+      function valPair(label, value, pct) {
+        if (pct != null && pct !== "")
+          return `${label}<b>${value}</b>(${pct}%)`;
+        return `${label}<b>${value}</b>`;
+      }
+
+      function valPlain(label, value) {
+        return `${label}<b>${value}</b>`;
+      }
+
+      function valLine(...parts) {
+        return `<div class="val-line">${parts.join(" ")}</div>`;
+      }
+
+      function renderValCell(metrics, detail, detailExtra) {
+        let html = metrics + `<div class="val-detail">${detail}</div>`;
+        if (detailExtra) {
+          html += `<div class="val-detail val-detail-sub">${detailExtra}</div>`;
+        }
+        return html;
       }
 
       function signalFromPercentile(pct, divBonus) {
@@ -1376,28 +1921,48 @@
         return sig;
       }
 
-      /* 纳指100：成长科技法 — PB 权重更高，PEG/股债利差辅助 */
+      function upgrade(sig, action, level, tagCls) {
+        const rank = { buy: 0, ok: 1, warn: 2, stop: 3, na: -1 };
+        if (rank[level] < rank[sig.level]) return { action, level, tagCls };
+        return sig;
+      }
+
+      /* 纳指100：成长科技法 — PB权重高，PEG/ERP/溢价/美元 辅助 */
       function evalNasdaq(v) {
         const peP = valPct(v, "pe_percentile");
         const pbP = valPct(v, "pb_percentile");
         const div = valPct(v, "yeild");
         const peg = v.peg || 0;
-        const erp = equityRiskPremium(v);
+        const erp = equityRiskPremium(v, usBondYieldForErp());
         const score = pbP * 0.6 + peP * 0.4;
 
         let sig = signalFromPercentile(score, false);
         if (pbP >= 90) sig = downgrade(sig, "减半买入", "warn", "tag-s2");
         if (pbP >= 95 || score >= 85)
           sig = { action: "暂停买入", level: "stop", tagCls: "tag-s1" };
-        if (peg > 1.8 && score >= 65)
+        if (peg > 2.0 && score >= 60)
           sig = downgrade(sig, "减半买入", "warn", "tag-s2");
-        if (erp < 0 && score >= 60)
+        else if (peg > 1.5 && score >= 70)
           sig = downgrade(sig, "减半买入", "warn", "tag-s2");
+        if (erp < -1.5 && score >= 55)
+          sig = { action: "暂停买入", level: "stop", tagCls: "tag-s1" };
+        else if (erp < 0 && score >= 60)
+          sig = downgrade(sig, "减半买入", "warn", "tag-s2");
+        if (peP >= 85 && pbP >= 85)
+          sig = { action: "暂停买入", level: "stop", tagCls: "tag-s1" };
 
         const zone = zoneFromPct(Math.max(pbP, peP, score));
         const peVal = v.pe ? v.pe.toFixed(1) : "—";
         const pbVal = v.pb ? v.pb.toFixed(2) : "—";
-        const metrics = `PB<b>${pbVal}</b>(${pbP.toFixed(0)}%) PE<b>${peVal}</b>(${peP.toFixed(0)}%)<br>PEG<b>${peg ? peg.toFixed(2) : "—"}</b> 利差<b>${erp.toFixed(1)}%</b>`;
+        const metrics =
+          valLine(
+            valPair("PB", pbVal, pbP.toFixed(0)),
+            valPair("PE", peVal, peP.toFixed(0)),
+          ) +
+          valLine(
+            valPlain("PEG", peg ? peg.toFixed(2) : "—"),
+            valPlain("ERP", erp.toFixed(1) + "%"),
+          );
         return {
           ...sig,
           peP,
@@ -1410,29 +1975,43 @@
         };
       }
 
-      /* 标普500：博格预期收益法 — 宽基美股经典模型 */
+      /* 标普500：博格预期收益法 — PE分位 + 博格预期 + ERP */
       function evalSp500(v) {
         const peP = valPct(v, "pe_percentile");
         const pbP = valPct(v, "pb_percentile");
         const div = valPct(v, "yeild");
         const bogle = bogleReturn(v);
-        const erp = equityRiskPremium(v);
+        const erp = equityRiskPremium(v, usBondYieldForErp());
 
         let sig = signalFromPercentile(peP, div > 2.5);
         if (bogle < 2 && peP > 70)
           sig = { action: "暂停买入", level: "stop", tagCls: "tag-s1" };
+        else if (bogle < 3.5 && peP > 78)
+          sig = downgrade(sig, "减半买入", "warn", "tag-s2");
         else if (bogle < 4 && peP > 75)
           sig = downgrade(sig, "减半买入", "warn", "tag-s2");
         else if (bogle > 6 && peP < 50)
           sig = { action: "积极买入", level: "buy", tagCls: "tag-s5" };
+        else if (bogle > 5 && peP < 40 && erp > 1)
+          sig = upgrade(sig, "积极买入", "buy", "tag-s5");
         if (pbP > 95) sig = downgrade(sig, "减半买入", "warn", "tag-s2");
-        if (erp < -1 && peP > 65)
+        if (erp < -1.5 && peP > 60)
+          sig = downgrade(sig, "减半买入", "warn", "tag-s2");
+        else if (erp < -1 && peP > 65)
           sig = downgrade(sig, "减半买入", "warn", "tag-s2");
 
         const zone = zoneFromPct(Math.max(peP, pbP));
         const peVal = v.pe ? v.pe.toFixed(1) : "—";
         const pbVal = v.pb ? v.pb.toFixed(2) : "—";
-        const metrics = `PE<b>${peVal}</b>(${peP.toFixed(0)}%) 博格<b>${bogle.toFixed(1)}%</b><br>股息<b>${div.toFixed(1)}%</b> 利差<b>${erp.toFixed(1)}%</b>`;
+        const metrics =
+          valLine(
+            valPair("PE", peVal, peP.toFixed(0)),
+            valPlain("博格", bogle.toFixed(1) + "%"),
+          ) +
+          valLine(
+            valPlain("股息", div.toFixed(1) + "%"),
+            valPlain("ERP", erp.toFixed(1) + "%"),
+          );
         return {
           ...sig,
           peP,
@@ -1446,35 +2025,55 @@
         };
       }
 
-      /* 中证A500：A股双分位法 — 综合分定主调，单项极高仅加码从严 */
+      /* 中证A500：A股双分位法 — PE/PB综合 + ERP/ROE/PEG */
       function evalAShare(v, proxy) {
         const peP = valPct(v, "pe_percentile");
         const pbP = valPct(v, "pb_percentile");
         const div = valPct(v, "yeild");
         const roe = valPct(v, "roe");
+        const peg = v.peg || 0;
+        const erp = equityRiskPremium(v);
         const score = peP * 0.55 + pbP * 0.45;
 
         let sig = signalFromPercentile(score, div > 2.5);
 
-        // 综合分定主调；单项极高仅在「可买」阶段加码降级，不另设暂停线
+        if (erp > 3 && score < 45)
+          sig = upgrade(sig, "积极买入", "buy", "tag-s5");
+        else if (erp > 2 && score < 55)
+          sig = upgrade(sig, "正常买入", "ok", "tag-s4");
+        if (erp < 0 && score > 65)
+          sig = downgrade(sig, "减半买入", "warn", "tag-s2");
+
         if (sig.level === "buy" || sig.level === "ok") {
           if (peP > 88 || pbP > 92)
             sig = downgrade(sig, "减半买入", "warn", "tag-s2");
           else if (peP > 82 && pbP > 82)
             sig = downgrade(sig, "减半买入", "warn", "tag-s2");
         }
+        if (score >= 88)
+          sig = { action: "暂停买入", level: "stop", tagCls: "tag-s1" };
         if (roe < 8 && score > 70)
+          sig = downgrade(sig, "减半买入", "warn", "tag-s2");
+        if (peg > 1.5 && score > 65)
           sig = downgrade(sig, "减半买入", "warn", "tag-s2");
 
         const zone = zoneFromPct(score);
         const peVal = v.pe ? v.pe.toFixed(1) : "—";
         const pbVal = v.pb ? v.pb.toFixed(2) : "—";
-        const metrics = `PE<b>${peVal}</b>(${peP.toFixed(0)}%) PB<b>${pbVal}</b>(${pbP.toFixed(0)}%)<br>综合<b>${score.toFixed(0)}%</b> ROE<b>${roe.toFixed(1)}%</b>`;
-        const detail = `${zone}·A股双分位${proxy ? "·" + proxy + "参考" : ""}`;
+        const metrics =
+          valLine(
+            valPair("PE", peVal, peP.toFixed(0)),
+            valPair("PB", pbVal, pbP.toFixed(0)),
+          ) +
+          valLine(
+            valPlain("综合", score.toFixed(0) + "%"),
+            valPlain("ERP", erp.toFixed(1) + "%"),
+          );
+        const detail = `${zone}·A股双分位${proxy ? "·" + proxy : ""}`;
         return { ...sig, peP, pbP, div, score, metrics, detail, zone };
       }
 
-      /* 红利低波：股息市净率法 — PB 为主，高股息修正 */
+      /* 红利低波：股息市净率法 — PB为主，股息/ROE质量修正 */
       function evalDividend(v) {
         const peP = valPct(v, "pe_percentile");
         const pbP = valPct(v, "pb_percentile");
@@ -1491,13 +2090,23 @@
           else if (sig.level === "ok")
             sig = { action: "正常买入", level: "ok", tagCls: "tag-s4" };
         }
-        if (div > 6 && pbP < 60)
+        if (div > 6 && pbP < 60 && roe >= 8)
           sig = { action: "积极买入", level: "buy", tagCls: "tag-s5" };
+        if (div > 5 && roe < 6)
+          sig = downgrade(sig, "减半买入", "warn", "tag-s2");
 
         const zone = zoneFromPct(pbP);
         const peVal = v.pe ? v.pe.toFixed(1) : "—";
         const pbVal = v.pb ? v.pb.toFixed(2) : "—";
-        const metrics = `PB<b>${pbVal}</b>(${pbP.toFixed(0)}%) 股息<b>${div.toFixed(1)}%</b><br>PE<b>${peVal}</b>(${peP.toFixed(0)}%) ROE<b>${roe.toFixed(1)}%</b>`;
+        const metrics =
+          valLine(
+            valPair("PB", pbVal, pbP.toFixed(0)),
+            valPlain("股息", div.toFixed(1) + "%"),
+          ) +
+          valLine(
+            valPair("PE", peVal, peP.toFixed(0)),
+            valPlain("ROE", roe.toFixed(1) + "%"),
+          );
         return {
           ...sig,
           peP,
@@ -1510,26 +2119,54 @@
         };
       }
 
-      /* 十年国债：股债比价法 — 根据股票整体估值决定债的配置吸引力 */
+      /* 十年国债：股债比价 + 10Y收益率水平 */
       function evalBond(ctx) {
-        const { avgScore, highCount, lowCount } = ctx;
+        const { avgScore, highCount, lowCount, bondYieldPct } = ctx;
         let sig, metrics, detail, zone;
+        const y = bondYieldPct ?? 4;
 
         if (avgScore >= 75 || highCount >= 3) {
-          sig = { action: "可以买入", level: "ok", tagCls: "tag-s3" };
-          zone = "合理区";
-          metrics = `股综<b>${avgScore.toFixed(0)}%</b> 偏高<b>${highCount}</b>只<br>仓位加权·股贵债优`;
-          detail = `${zone}·股债比价法`;
+          if (y >= 4.5) {
+            sig = { action: "积极买入", level: "buy", tagCls: "tag-s5" };
+            zone = "合理区";
+            metrics = valLine(
+              valPlain("10Y", y.toFixed(1) + "%"),
+              valPlain("股综", avgScore.toFixed(0) + "%"),
+            );
+            detail = `${zone}·股债比价·债优`;
+          } else {
+            sig = { action: "可以买入", level: "ok", tagCls: "tag-s3" };
+            zone = "合理区";
+            metrics = valLine(
+              valPlain("10Y", y.toFixed(1) + "%"),
+              valPlain("股综", avgScore.toFixed(0) + "%"),
+            );
+            detail = `${zone}·股债比价·维持`;
+          }
         } else if (avgScore <= 40 || lowCount >= 2) {
           sig = { action: "减半买入", level: "warn", tagCls: "tag-s2" };
           zone = "偏低区";
-          metrics = `股综<b>${avgScore.toFixed(0)}%</b> 低估<b>${lowCount}</b>只<br>仓位加权·减债增股`;
-          detail = `${zone}·股债比价法`;
+          metrics = valLine(
+            valPlain("10Y", y.toFixed(1) + "%"),
+            valPlain("低估", lowCount + "只"),
+          );
+          detail = `${zone}·股债比价·减债`;
+        } else if (y < 2.5) {
+          sig = { action: "减半买入", level: "warn", tagCls: "tag-s2" };
+          zone = "偏低区";
+          metrics = valLine(
+            valPlain("10Y", y.toFixed(1) + "%"),
+            valPlain("股综", avgScore.toFixed(0) + "%"),
+          );
+          detail = `${zone}·股债比价·收益低`;
         } else {
           sig = { action: "正常买入", level: "ok", tagCls: "tag-s4" };
           zone = "合理区";
-          metrics = `股综<b>${avgScore.toFixed(0)}%</b><br>仓位加权·维持比例`;
-          detail = `${zone}·股债比价法`;
+          metrics = valLine(
+            valPlain("10Y", y.toFixed(1) + "%"),
+            valPlain("股综", avgScore.toFixed(0) + "%"),
+          );
+          detail = `${zone}·股债比价·维持`;
         }
         return {
           ...sig,
@@ -1554,7 +2191,7 @@
 
         PORTFOLIO.forEach((p) => {
           if (p.method === "bond") return;
-          const v = valMap[p.indexCode];
+          const { v, proxy } = resolveIndexVal(p, valMap);
           if (!v) {
             results[p.code] = {
               action: "暂无数据",
@@ -1566,7 +2203,9 @@
             return;
           }
           const evalFn = EVALUATORS[p.method];
-          let r = evalFn ? evalFn(v, p) : evalAShare(v, p.proxy);
+          let r = evalFn
+            ? evalFn(v, { ...p, proxy })
+            : evalAShare(v, { ...p, proxy });
           r = applyPremiumAdvice(p.code, r);
           results[p.code] = r;
           if (r.score != null) {
@@ -1583,7 +2222,12 @@
             : 60;
           const highCount = equityCtx.filter((e) => e.zone === "偏高区").length;
           const lowCount = equityCtx.filter((e) => e.zone === "低估区").length;
-          results[bondP.code] = evalBond({ avgScore, highCount, lowCount });
+          results[bondP.code] = evalBond({
+            avgScore,
+            highCount,
+            lowCount,
+            bondYieldPct: macroCtx.bondYieldPct,
+          });
         }
 
         return results;
@@ -1591,30 +2235,47 @@
 
       function applyPremiumAdvice(code, sig) {
         const prem = premiumMap[code];
-        if (!prem || prem.pct == null) return sig;
         const r = { ...sig };
-        const { pct, isQdii } = prem;
+        const isQdii = code === "513100" || code === "513500";
 
-        if (isQdii && pct > 5) {
-          r.action = "暂停买入";
-          r.level = "stop";
-          r.tagCls = "tag-s1";
-          r.detail = (r.detail || "") + ` · 溢价${pct.toFixed(1)}%过高`;
-        } else if (isQdii && pct > 3) {
-          if (r.level === "buy" || r.level === "ok") {
-            r.action = "减半买入";
-            r.level = "warn";
-            r.tagCls = "tag-s2";
+        if (prem?.pct != null) {
+          const { pct, isQdii: qdiiFlag } = prem;
+          if (qdiiFlag && pct > 5) {
+            r.action = "暂停买入";
+            r.level = "stop";
+            r.tagCls = "tag-s1";
+            r.detail = (r.detail || "") + ` · 溢价${pct.toFixed(1)}%过高`;
+          } else if (qdiiFlag && pct > 3) {
+            if (r.level === "buy" || r.level === "ok") {
+              r.action = "减半买入";
+              r.level = "warn";
+              r.tagCls = "tag-s2";
+            }
+            r.detail = (r.detail || "") + ` · 溢价${pct.toFixed(1)}%偏高`;
+          } else if (pct > 2 && !qdiiFlag) {
+            r.detail = (r.detail || "") + ` · 溢价${pct.toFixed(2)}%`;
           }
-          r.detail = (r.detail || "") + ` · 溢价${pct.toFixed(1)}%偏高`;
-        } else if (pct > 2 && !isQdii) {
-          r.detail = (r.detail || "") + ` · 溢价${pct.toFixed(2)}%`;
         }
+
+        if (isQdii) {
+          const extra = usdDetailExtra();
+          if (extra) {
+            if (isUsdStrong() && (r.level === "buy" || r.level === "ok")) {
+              r.action = "减半买入";
+              r.level = "warn";
+              r.tagCls = "tag-s2";
+            }
+            r.detailExtra = extra;
+          }
+        }
+
         return r;
       }
 
       function renderValuation() {
+        ensureMacroUsdcny();
         const results = evaluatePortfolio();
+        logSignalHistory(results);
         let buyN = 0,
           warnN = 0,
           stopN = 0;
@@ -1622,8 +2283,18 @@
         PORTFOLIO.forEach((p) => {
           const r = results[p.code];
           if (!r) return;
-          document.getElementById("val-" + p.code).innerHTML =
-            r.metrics + `<br><span style="opacity:.7">${r.detail}</span>`;
+          if (
+            !r.detailExtra &&
+            (p.code === "513100" || p.code === "513500")
+          ) {
+            const extra = usdDetailExtra();
+            if (extra) r.detailExtra = extra;
+          }
+          document.getElementById("val-" + p.code).innerHTML = renderValCell(
+            r.metrics,
+            r.detail,
+            r.detailExtra,
+          );
           document.getElementById("adv-" + p.code).innerHTML = renderSignalTag(
             r.action,
           );
@@ -1637,8 +2308,16 @@
         if (warnN) parts.push(`${warnN} 只建议减半`);
         if (stopN) parts.push(`${stopN} 只建议暂停`);
         const dateStr = valDate ? ` · 数据${valDate}` : "";
+        const macroStr = macroCtx.bondYieldPct
+          ? ` · CN10Y${macroCtx.bondYieldPct.toFixed(1)}%`
+          : "";
+        const usBondStr = macroCtx.usBondYieldPct
+          ? ` · US10Y${macroCtx.usBondYieldPct.toFixed(1)}%`
+          : "";
+        const fxStr =
+          macroCtx.usdcny != null ? ` · USD${macroCtx.usdcny.toFixed(2)}` : "";
         setValBanner(
-          `📊 估值结论：${parts.join("，") || "—"}${dateStr}`,
+          `📊 估值结论：${parts.join("，") || "—"}${dateStr}${macroStr}${usBondStr}${fxStr}`,
           stopN >= 2 ? "warn" : "info",
         );
       }
@@ -1648,7 +2327,7 @@
           const { map, date } = await fetchValuationData();
           valMap = map;
           valDate = date;
-          renderValuation();
+          macroCtx.bondYieldPct = extractBondYield(valMap);
           return true;
         } catch (e) {
           setValBanner(
@@ -1661,8 +2340,8 @@
 
       async function fetchEM() {
         const ids = PORTFOLIO.map((p) => p.secid).join(",");
-        const r = await fetch(
-          `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=${ids}&fields=f12,f2,f3,f441`,
+        const r = await fetchWithTimeout(
+          `https://push2.eastmoney.com/api/qt/ulist.np/get?fltt=2&secids=${ids}&fields=f12,f2,f3,f441,f14`,
         );
         if (!r.ok) throw new Error("HTTP " + r.status);
         const j = await r.json();
@@ -1674,6 +2353,7 @@
         return new Promise((resolve, reject) => {
           const syms = PORTFOLIO.map((p) => "sh" + p.code).join(",");
           const s = document.createElement("script");
+          s.referrerPolicy = "origin";
           s.src = `https://hq.sinajs.cn/list=${syms}&_=${Date.now()}`;
           s.onload = () => {
             try {
@@ -1701,30 +2381,43 @@
             s.remove();
             reject(new Error("新浪失败"));
           };
-          document.body.appendChild(s);
+          document.head.appendChild(s);
         });
       }
 
-      async function fetchPrices() {
-        let quotes;
-        try {
-          quotes = await fetchEM();
-        } catch {
-          quotes = await fetchSina();
-        }
+      function applyQuotes(quotes) {
         const map = Object.fromEntries(quotes.map((q) => [q.f12, q]));
         PORTFOLIO.forEach((p) => {
           const q = map[p.code];
           if (!q?.f2) return;
           const price = Number(q.f2);
-          document.getElementById("price-" + p.code).textContent =
-            fmtPrice3(price, "—");
+          document.getElementById("price-" + p.code).textContent = fmtPrice3(
+            price,
+            "—",
+          );
           const c = document.getElementById("chg-" + p.code);
           const pct = Number(q.f3) || 0;
           c.className = "chg " + chgCls(pct);
           c.textContent = fmtPct(pct);
           renderPremium(p.code, price, Number(q.f441));
         });
+      }
+
+      async function fetchPrices() {
+        const sources = IS_FILE_PROTOCOL
+          ? [fetchTencent, fetchEM, fetchSina]
+          : [fetchEM, fetchTencent, fetchSina];
+        for (const fn of sources) {
+          try {
+            const quotes = await fn();
+            if (quotes?.length) {
+              applyQuotes(quotes);
+              return true;
+            }
+          } catch (_) {}
+        }
+        setQuote("行情失败", false);
+        return false;
       }
 
       async function refreshAll(manual) {
@@ -1734,8 +2427,10 @@
         if (manual) setQuote("刷新中…", false);
 
         try {
-          await Promise.all([fetchPrices(), loadValuation()]);
-          setQuote("已更新 " + fmtTime(new Date()), true);
+          const ok = await fetchPrices();
+          await Promise.all([loadValuation(), loadMacro()]);
+          renderValuation();
+          if (ok) setQuote("已更新 " + fmtTime(new Date()), true);
           calculate();
         } catch (e) {
           setQuote("部分失败", false);
@@ -1931,7 +2626,7 @@
         }
 
         if (newCash <= 0 && !hasHoldings) {
-          setBanner("warn", "请填写持仓或本次投入金额");
+          setBanner("warn", "请填写持仓或投入总额金额");
         } else if (newCash > 0 && newCash < minAll) {
           setBanner(
             "warn",
@@ -1963,6 +2658,7 @@
         }
       }
 
+      applyMacroCache();
       loadAmount();
       initTable();
       updateAmountLive();
