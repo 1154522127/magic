@@ -955,6 +955,12 @@
         });
       }
 
+      function fmtPrice3(n, fallback = "") {
+        const v = Number(n);
+        if (!Number.isFinite(v) || v <= 0) return fallback;
+        return v.toFixed(3);
+      }
+
       function parseAmount(str) {
         const n = parseFloat(
           String(str)
@@ -1068,7 +1074,7 @@
           <td id="pnl-${p.code}">—</td>
           <td id="adv-${p.code}">—</td>
           <td><input type="text" inputmode="numeric" class="pos-input" id="hold-${p.code}" value="${h.shares || ""}" placeholder="0" autocomplete="off" /></td>
-          <td><input type="text" inputmode="decimal" class="pos-input cost" id="cost-${p.code}" value="${h.cost || ""}" placeholder="—" autocomplete="off" /></td>
+          <td><input type="text" inputmode="decimal" class="pos-input cost" id="cost-${p.code}" value="${fmtPrice3(h.cost)}" placeholder="—" autocomplete="off" /></td>
           <td class="price-col"><span class="price-val" id="price-${p.code}">—</span></td>
           <td class="cell-stack" id="costmkt-${p.code}">—</td>
           <td class="cell-stack" id="tgtneed-${p.code}">—</td>
@@ -1087,6 +1093,12 @@
           });
           costEl.addEventListener("input", () => {
             costEl.value = costEl.value.replace(/[^\d.]/g, "");
+            saveHoldings();
+            calculate();
+          });
+          costEl.addEventListener("blur", () => {
+            const v = parseFloat(costEl.value);
+            costEl.value = v > 0 ? fmtPrice3(v) : "";
             saveHoldings();
             calculate();
           });
@@ -1706,7 +1718,7 @@
           if (!q?.f2) return;
           const price = Number(q.f2);
           document.getElementById("price-" + p.code).textContent =
-            price.toFixed(3);
+            fmtPrice3(price, "—");
           const c = document.getElementById("chg-" + p.code);
           const pct = Number(q.f3) || 0;
           c.className = "chg " + chgCls(pct);
