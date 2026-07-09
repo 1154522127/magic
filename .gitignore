@@ -1,0 +1,4 @@
+.proxy.pid
+.web.pid
+.proxy.log
+.web.log

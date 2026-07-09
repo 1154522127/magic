@@ -1091,6 +1091,7 @@
       let fetching = false;
       let valMap = {};
       let valDate = "";
+      let valSource = "";
       let premiumMap = {};
       const SIGNAL_HISTORY_KEY = "magic_signal_history";
       const FX_HISTORY_KEY = "magic_usdcny_hist";
@@ -1367,9 +1368,83 @@
         el.title = text;
       }
 
-      /* ── 估值数据获取 ── */
+      /* ── 估值：djeva镜像 / 蛋卷API → valMap ── */
       const IS_FILE_PROTOCOL =
         location.protocol === "file:" || location.origin === "null";
+
+      function isLanHost(host) {
+        return /^(192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/.test(host);
+      }
+
+      function isLocalAppPage() {
+        if (IS_FILE_PROTOCOL) return true;
+        const host = location.hostname;
+        if (/^(127\.0\.0\.1|localhost)$/i.test(host)) return true;
+        if (isLanHost(host)) return true;
+        return false;
+      }
+
+      const DANJUAN_VAL_URLS = [
+        "https://danjuanfunds.com/djapi/index_eva/dj",
+        "https://danjuanapp.com/djapi/index_eva/dj",
+      ];
+      const DANJUAN_VAL_HEADERS = {
+        Referer: "https://danjuanfunds.com/djmodule/value-center",
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
+      };
+      const CAN_FETCH_DANJUAN_DIRECT =
+        !IS_FILE_PROTOCOL &&
+        /danjuan(?:funds|app)\.com$/i.test(location.hostname);
+
+      const LOCAL_VAL_PROXY = "http://127.0.0.1:8787";
+      const LOCAL_PROXY_OFF_KEY = "magic_local_proxy_off";
+
+      function valuationProxyUrl() {
+        try {
+          const v = localStorage.getItem("magic_val_proxy")?.trim();
+          if (v) return v;
+        } catch {
+          /* ignore */
+        }
+        if (!isLocalAppPage()) return "";
+        try {
+          if (sessionStorage.getItem(LOCAL_PROXY_OFF_KEY) === "1") return "";
+        } catch {
+          /* ignore */
+        }
+        return defaultValProxy();
+      }
+
+      function markLocalProxyDown() {
+        try {
+          sessionStorage.setItem(LOCAL_PROXY_OFF_KEY, "1");
+        } catch {
+          /* ignore */
+        }
+      }
+
+      function markLocalProxyUp() {
+        try {
+          sessionStorage.removeItem(LOCAL_PROXY_OFF_KEY);
+        } catch {
+          /* ignore */
+        }
+      }
+
+      function isLocalProxy(url) {
+        return /^https?:\/\/(127\.0\.0\.1|localhost|192\.168\.|10\.|172\.(1[6-9]|2\d|3[01])\.)/i.test(
+          url,
+        );
+      }
+
+      function defaultValProxy() {
+        const host = location.hostname;
+        if (/^(127\.0\.0\.1|localhost)$/i.test(host))
+          return LOCAL_VAL_PROXY;
+        if (isLanHost(host)) return `http://${host}:8787`;
+        return LOCAL_VAL_PROXY;
+      }
 
       async function fetchLatestDjevaDate() {
         try {
@@ -1404,70 +1479,89 @@
 
       async function fetchDjevaJson(date) {
         const url = `https://cdn.jsdelivr.net/gh/caibingcheng/djeva@master/json/${date}.json`;
-        const r = await fetch(url);
-        if (!r.ok) return null;
-        const items = await r.json();
-        if (!Array.isArray(items) || !items.length) return null;
-        return {
-          map: Object.fromEntries(items.map((i) => [i.index_code, i])),
-          date,
-        };
+        try {
+          const r = await fetchWithTimeout(url, 5000);
+          if (!r.ok) return null;
+          const items = await r.json();
+          if (!Array.isArray(items) || !items.length) return null;
+          return {
+            map: Object.fromEntries(items.map((i) => [i.index_code, i])),
+            date,
+          };
+        } catch {
+          return null;
+        }
       }
 
       async function fetchValuationMirror() {
         const tried = new Set();
-        const latest = await fetchLatestDjevaDate();
-        if (latest) {
-          tried.add(latest);
-          const hit = await fetchDjevaJson(latest);
+        // 优先按日历倒序找最新 json，不依赖 djeva.js 索引（更稳、更新）
+        for (const d of recentDates(15)) {
+          tried.add(d);
+          const hit = await fetchDjevaJson(d);
           if (hit) return hit;
         }
-        for (const d of recentDates(12)) {
-          if (tried.has(d)) continue;
-          const hit = await fetchDjevaJson(d);
+        const latest = await fetchLatestDjevaDate();
+        if (latest && !tried.has(latest)) {
+          const hit = await fetchDjevaJson(latest);
           if (hit) return hit;
         }
         return null;
       }
 
-      const USE_VAL_MIRROR_FIRST =
-        IS_FILE_PROTOCOL ||
-        !/danjuan(?:funds|app)\.com$/i.test(location.hostname);
-
-      async function fetchValuationData() {
-        if (USE_VAL_MIRROR_FIRST) {
-          const mirror = await fetchValuationMirror();
-          if (mirror) return mirror;
+      async function fetchDanjuanValuation() {
+        const proxy = valuationProxyUrl();
+        if (proxy) {
+          try {
+            const ms = isLocalProxy(proxy) ? 2000 : 8000;
+            const r = await fetchWithTimeout(proxy, ms);
+            if (r.ok) {
+              if (isLocalProxy(proxy)) markLocalProxyUp();
+              return { ...parseValJson(await r.json()), source: "danjuan" };
+            }
+          } catch (_) {
+            if (isLocalProxy(proxy)) markLocalProxyDown();
+          }
         }
 
-        const apiUrls = [
-          "https://danjuanfunds.com/djapi/index_eva/dj",
-          "https://danjuanapp.com/djapi/index_eva/dj",
-        ];
-        const apiHeaders = {
-          Referer: "https://danjuanfunds.com/djmodule/value-center",
-          "User-Agent":
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        };
+        if (!CAN_FETCH_DANJUAN_DIRECT) return null;
 
-        for (const url of apiUrls) {
+        for (const url of DANJUAN_VAL_URLS) {
           try {
             const r = await fetchWithTimeout(url, 8000, {
-              headers: apiHeaders,
+              headers: DANJUAN_VAL_HEADERS,
             });
-            if (r.ok) return parseValJson(await r.json());
+            if (r.ok) {
+              return { ...parseValJson(await r.json()), source: "danjuan" };
+            }
           } catch (_) {}
         }
+        return null;
+      }
+
+      async function fetchValuationData() {
+        const danjuan = await fetchDanjuanValuation();
+        if (danjuan) return danjuan;
 
         const mirror = await fetchValuationMirror();
-        if (mirror) return mirror;
+        if (mirror) return { ...mirror, source: "mirror" };
+
         throw new Error("估值数据获取失败");
+      }
+
+      function valDataAgeDays(dateStr) {
+        if (!dateStr) return null;
+        const m = String(dateStr).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (!m) return null;
+        const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+        return Math.floor((Date.now() - d.getTime()) / 86400000);
       }
 
       function recentDates(n) {
         const out = [];
         const d = new Date();
-        for (let i = 0; i < n * 2 && out.length < n; i++) {
+        // 跳过今天：镜像通常晚一天更新，避免 404
+        for (let i = 1; i < n * 2 + 1 && out.length < n; i++) {
           const t = new Date(d);
           t.setDate(t.getDate() - i);
           if (t.getDay() === 0 || t.getDay() === 6) continue;
@@ -1476,13 +1570,24 @@
         return out;
       }
 
+      function normalizeValDate(raw) {
+        if (!raw) return new Date().toISOString().slice(0, 10);
+        const s = String(raw).trim();
+        if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+        const md = s.match(/^(\d{2})-(\d{2})$/);
+        if (md) {
+          const now = new Date();
+          return `${now.getFullYear()}-${md[1]}-${md[2]}`;
+        }
+        return new Date().toISOString().slice(0, 10);
+      }
+
       function parseValJson(json) {
         const items = json?.data?.items || json?.data || json;
         if (!Array.isArray(items)) throw new Error("格式错误");
-        const date = items[0]?.date || new Date().toISOString().slice(0, 10);
         return {
           map: Object.fromEntries(items.map((i) => [i.index_code, i])),
-          date,
+          date: normalizeValDate(items[0]?.date),
         };
       }
 
@@ -1698,10 +1803,11 @@
       }
 
       function tencentIopv(code, parts) {
-        const isQdii = code === "513100" || code === "513500";
+        const price = Number(parts[3]);
         const iopv78 = Number(parts[78]);
         const iopv51 = Number(parts[51]);
-        if (isQdii && Number.isFinite(iopv78) && iopv78 > 0) return iopv78;
+        // 腾讯字段 78 = IOPV/参考净值（QDII 与国内 ETF 均在此）
+        if (Number.isFinite(iopv78) && iopv78 > 0) return iopv78;
         if (Number.isFinite(iopv51) && iopv51 > 0) return iopv51;
         return undefined;
       }
@@ -1808,7 +1914,7 @@
       }
 
       async function fetchUsdcny() {
-        const sources = IS_FILE_PROTOCOL
+        const sources = isLocalAppPage()
           ? [
               fetchUsdcnyFromCdn,
               fetchUsdcnyFromErApi,
@@ -2404,7 +2510,18 @@
         if (buyN) parts.push(`${buyN} 只可买`);
         if (warnN) parts.push(`${warnN} 只建议减半`);
         if (stopN) parts.push(`${stopN} 只建议暂停`);
-        const dateStr = valDate ? ` · 数据${valDate}` : "";
+        const sourceStr =
+          valSource === "danjuan"
+            ? "·蛋卷"
+            : valSource === "mirror"
+              ? "·镜像"
+              : "";
+        const ageDays = valDataAgeDays(valDate);
+        const staleStr =
+          ageDays != null && ageDays > 2 ? ` · 滞后${ageDays}天` : "";
+        const dateStr = valDate
+          ? ` · 数据${valDate}${sourceStr}${staleStr}`
+          : "";
         const macroStr = macroCtx.bondYieldPct
           ? ` · CN10Y${macroCtx.bondYieldPct.toFixed(1)}%`
           : "";
@@ -2413,20 +2530,30 @@
           : "";
         const fxStr =
           macroCtx.usdcny != null ? ` · USD${macroCtx.usdcny.toFixed(2)}` : "";
+        const proxyHint =
+          isLocalAppPage() && valSource === "mirror"
+            ? " · 蛋卷实时：先运行 python3 proxy/valuation.py，再点刷新"
+            : "";
         setValBanner(
-          `📊 估值结论：${parts.join("，") || "—"}${dateStr}${macroStr}${usBondStr}${fxStr}`,
-          stopN >= 2 ? "warn" : "info",
+          `📊 估值结论：${parts.join("，") || "—"}${dateStr}${macroStr}${usBondStr}${fxStr}${proxyHint}`,
+          stopN >= 2 ||
+            (ageDays != null && ageDays > 2) ||
+            (isLocalAppPage() && valSource === "mirror")
+            ? "warn"
+            : "info",
         );
       }
 
       async function loadValuation() {
         try {
-          const { map, date } = await fetchValuationData();
+          const { map, date, source } = await fetchValuationData();
           valMap = map;
           valDate = date;
+          valSource = source || "";
           macroCtx.bondYieldPct = extractBondYield(valMap);
           return true;
         } catch (e) {
+          valSource = "";
           setValBanner(
             "估值加载失败：" + e.message + "（仍可计算金额分配）",
             "err",
@@ -2482,6 +2609,24 @@
         });
       }
 
+      function mergeQuote(into, q) {
+        if (!q?.f12) return into;
+        const code = q.f12;
+        const prev = into[code];
+        if (!prev) {
+          into[code] = { ...q };
+          return into;
+        }
+        if (!prev.f2 && q.f2) prev.f2 = q.f2;
+        if ((prev.f3 == null || prev.f3 === 0) && q.f3) prev.f3 = q.f3;
+        if (!prev.f441 && q.f441) prev.f441 = q.f441;
+        return into;
+      }
+
+      function quotesFromMap(map) {
+        return PORTFOLIO.map((p) => map[p.code]).filter(Boolean);
+      }
+
       function applyQuotes(quotes) {
         const map = Object.fromEntries(quotes.map((q) => [q.f12, q]));
         PORTFOLIO.forEach((p) => {
@@ -2500,34 +2645,82 @@
         });
       }
 
-      async function fetchPrices() {
-        const sources = IS_FILE_PROTOCOL
-          ? [fetchTencent, fetchEM, fetchSina]
-          : [fetchEM, fetchTencent, fetchSina];
-        for (const fn of sources) {
+      /* ── 行情：东财 / 腾讯 / 新浪 → f2 f3 f441，多源合并 IOPV ── */
+      async function fetchQuotesMerged() {
+        const merged = {};
+        let gotPrice = false;
+
+        async function pullTencent() {
+          await loadQuoteScript(
+            `https://qt.gtimg.cn/q=${PORTFOLIO.map((p) => "sh" + p.code).join(",")}&_=${Date.now()}`,
+          );
+          for (const p of PORTFOLIO) {
+            const q = parseTencentQuote(p.code);
+            if (q) mergeQuote(merged, q);
+          }
+        }
+
+        async function pullEM() {
+          for (const q of await fetchEM()) mergeQuote(merged, q);
+        }
+
+        async function pullSina() {
+          for (const q of await fetchSina()) mergeQuote(merged, q);
+        }
+
+        // 本地（file:// 或 127.0.0.1）：跳过东财，避免 ERR_EMPTY_RESPONSE
+        const steps = isLocalAppPage()
+          ? [pullTencent]
+          : [pullEM, pullTencent];
+
+        for (const step of steps) {
           try {
-            const quotes = await fn();
-            if (quotes?.length) {
-              applyQuotes(quotes);
-              return true;
-            }
+            await step();
+            if (PORTFOLIO.some((p) => merged[p.code]?.f2 > 0)) gotPrice = true;
           } catch (_) {}
+        }
+
+        if (
+          !isLocalAppPage() &&
+          PORTFOLIO.some((p) => !merged[p.code]?.f2)
+        ) {
+          try {
+            await pullSina();
+            if (PORTFOLIO.some((p) => merged[p.code]?.f2 > 0)) gotPrice = true;
+          } catch (_) {}
+        }
+
+        const quotes = quotesFromMap(merged);
+        if (gotPrice && quotes.length) {
+          applyQuotes(quotes);
+          return true;
         }
         setQuote("行情失败", false);
         return false;
       }
 
+      async function fetchPrices() {
+        return fetchQuotesMerged();
+      }
+
+      /* ── 刷新：估值 + 宏观 + 行情 并行，买入建议依赖 A7 + 溢价 ── */
       async function refreshAll(manual) {
         if (fetching) return;
         fetching = true;
         document.getElementById("refreshBtn").disabled = true;
-        if (manual) setQuote("刷新中…", false);
+        if (manual) {
+          setQuote("刷新中…", false);
+          if (isLocalAppPage()) markLocalProxyUp();
+        }
 
         try {
-          const ok = await fetchPrices();
-          await Promise.all([loadValuation(), loadMacro()]);
+          const [quotesOk] = await Promise.all([
+            fetchPrices(),
+            loadValuation(),
+            loadMacro(),
+          ]);
           renderValuation();
-          if (ok) setQuote("已更新 " + fmtTime(new Date()), true);
+          if (quotesOk) setQuote("已更新 " + fmtTime(new Date()), true);
           calculate();
         } catch (e) {
           setQuote("部分失败", false);
