@@ -1384,6 +1384,13 @@
         return false;
       }
 
+      /** 浏览器直连东财 push2 在 GitHub Pages 等站点会 ERR_EMPTY_RESPONSE */
+      function shouldSkipEastmoneyFetch() {
+        if (isLocalAppPage()) return true;
+        if (/\.github\.io$/i.test(location.hostname)) return true;
+        return false;
+      }
+
       const DANJUAN_VAL_URLS = [
         "https://danjuanfunds.com/djapi/index_eva/dj",
         "https://danjuanapp.com/djapi/index_eva/dj",
@@ -1914,12 +1921,11 @@
       }
 
       async function fetchUsdcny() {
-        const sources = isLocalAppPage()
+        const sources = shouldSkipEastmoneyFetch()
           ? [
               fetchUsdcnyFromCdn,
               fetchUsdcnyFromErApi,
               fetchUsdcnyFromSina,
-              fetchUsdcnyFromEM,
             ]
           : [
               fetchUsdcnyFromEM,
@@ -2668,8 +2674,8 @@
           for (const q of await fetchSina()) mergeQuote(merged, q);
         }
 
-        // 本地（file:// 或 127.0.0.1）：跳过东财，避免 ERR_EMPTY_RESPONSE
-        const steps = isLocalAppPage()
+        // 本地 / GitHub Pages：跳过东财直连，避免 ERR_EMPTY_RESPONSE
+        const steps = shouldSkipEastmoneyFetch()
           ? [pullTencent]
           : [pullEM, pullTencent];
 
