@@ -223,8 +223,31 @@
 
       .summary-bar {
         display: grid;
-        grid-template-columns: repeat(4, 1fr);
+        grid-template-columns: repeat(3, 1fr);
         gap: 5px;
+      }
+      @media (min-width: 769px) {
+        .summary-wrap > .summary-bar .stat:nth-child(1) {
+          order: 1;
+        }
+        .summary-wrap > .summary-bar .stat:nth-child(2) {
+          order: 2;
+        }
+        .summary-wrap > .summary-bar .stat:nth-child(3) {
+          order: 4;
+        }
+        .summary-wrap > .summary-bar .stat:nth-child(4) {
+          order: 3;
+        }
+        .summary-wrap > .summary-bar .stat:nth-child(5) {
+          order: 5;
+        }
+        .summary-wrap > .summary-bar .stat:nth-child(6) {
+          order: 6;
+        }
+      }
+      .summary-wrap {
+        position: relative;
       }
       .stat {
         background: var(--surface);
@@ -253,7 +276,7 @@
         justify-content: flex-end;
         align-items: baseline;
         gap: 8px;
-        margin-top: 4px;
+        margin-top: 6px;
         padding-right: 2px;
       }
       .lot-foot-lbl {
@@ -951,22 +974,32 @@
         <div class="banner info" id="valBanner">
           估值加载中…（成长科技·博格预期·A股双分位·股息PB·股债比价+收益率）
         </div>
-        <div class="summary-bar">
-          <div class="stat">
-            <div class="lbl">投入总额</div>
-            <div class="val" id="sTotal">—</div>
-          </div>
-          <div class="stat">
-            <div class="lbl">持仓市值</div>
-            <div class="val" id="sMkt">—</div>
-          </div>
-          <div class="stat">
-            <div class="lbl">持仓成本</div>
-            <div class="val" id="sCost">—</div>
-          </div>
-          <div class="stat">
-            <div class="lbl">浮动盈亏</div>
-            <div class="val" id="sPnl">—</div>
+        <div class="summary-wrap">
+          <div class="summary-bar">
+            <div class="stat">
+              <div class="lbl">投入总额</div>
+              <div class="val" id="sTotal">—</div>
+            </div>
+            <div class="stat">
+              <div class="lbl">浮动盈亏</div>
+              <div class="val" id="sPnl">—</div>
+            </div>
+            <div class="stat">
+              <div class="lbl">剩余额度</div>
+              <div class="val" id="sLeft">—</div>
+            </div>
+            <div class="stat">
+              <div class="lbl">今日盈亏</div>
+              <div class="val" id="sDayPnl">—</div>
+            </div>
+            <div class="stat">
+              <div class="lbl">持仓市值</div>
+              <div class="val" id="sMkt">—</div>
+            </div>
+            <div class="stat">
+              <div class="lbl">持仓成本</div>
+              <div class="val" id="sCost">—</div>
+            </div>
           </div>
         </div>
         <div class="lot-wrap">
@@ -1093,6 +1126,7 @@
       let valDate = "";
       let valSource = "";
       let premiumMap = {};
+      let chgMap = {};
       const SIGNAL_HISTORY_KEY = "magic_signal_history";
       const FX_HISTORY_KEY = "magic_usdcny_hist";
       const MACRO_CACHE_KEY = "magic_macro_cache";
@@ -1349,6 +1383,11 @@
         return v > 0 ? v : 0;
       }
 
+      function getChgPct(code) {
+        const v = Number(chgMap[code]);
+        return Number.isFinite(v) ? v : 0;
+      }
+
       function setQuote(text, live) {
         document.getElementById("quoteStatus").textContent = text;
         document.getElementById("liveDot").classList.toggle("on", live);
@@ -1447,8 +1486,7 @@
 
       function defaultValProxy() {
         const host = location.hostname;
-        if (/^(127\.0\.0\.1|localhost)$/i.test(host))
-          return LOCAL_VAL_PROXY;
+        if (/^(127\.0\.0\.1|localhost)$/i.test(host)) return LOCAL_VAL_PROXY;
         if (isLanHost(host)) return `http://${host}:8787`;
         return LOCAL_VAL_PROXY;
       }
@@ -1922,11 +1960,7 @@
 
       async function fetchUsdcny() {
         const sources = shouldSkipEastmoneyFetch()
-          ? [
-              fetchUsdcnyFromCdn,
-              fetchUsdcnyFromErApi,
-              fetchUsdcnyFromSina,
-            ]
+          ? [fetchUsdcnyFromCdn, fetchUsdcnyFromErApi, fetchUsdcnyFromSina]
           : [
               fetchUsdcnyFromEM,
               fetchUsdcnyFromCdn,
@@ -2645,6 +2679,7 @@
           );
           const c = document.getElementById("chg-" + p.code);
           const pct = Number(q.f3) || 0;
+          chgMap[p.code] = pct;
           c.className = "chg " + chgCls(pct);
           c.textContent = fmtPct(pct);
           renderPremium(p.code, price, Number(q.f441));
@@ -2686,10 +2721,7 @@
           } catch (_) {}
         }
 
-        if (
-          !isLocalAppPage() &&
-          PORTFOLIO.some((p) => !merged[p.code]?.f2)
-        ) {
+        if (!isLocalAppPage() && PORTFOLIO.some((p) => !merged[p.code]?.f2)) {
           try {
             await pullSina();
             if (PORTFOLIO.some((p) => merged[p.code]?.f2 > 0)) gotPrice = true;
@@ -2892,7 +2924,17 @@
         renderValuation();
 
         const totalPnl = costTotal > 0 ? holdingsTotal - costTotal : null;
-        const left = newCash > 0 ? newCash - costTotal : 0;
+        const left = newCash > 0 ? newCash - costTotal : null;
+        const dayPnl = holdings.reduce((s, r) => {
+          if (r.shares <= 0 || r.marketValue <= 0) return s;
+          const pct = getChgPct(r.code);
+          const denom = 100 + pct;
+          if (!Number.isFinite(pct) || Math.abs(denom) < 1e-9) return s;
+          return s + (r.marketValue * pct) / denom;
+        }, 0);
+        const hasDayPnl = holdings.some(
+          (r) => r.shares > 0 && chgMap[r.code] != null,
+        );
         const oneLotEach = renderLotPrices(rows);
         const minAll = oneLotEach;
         const allOk = newCash <= 0 || rows.every((r) => r.lots >= 1);
@@ -2907,6 +2949,8 @@
 
         document.getElementById("sTotal").textContent =
           newCash > 0 ? "¥" + fmt(newCash) : "—";
+        document.getElementById("sLeft").textContent =
+          left != null ? "¥" + fmt(left) : "—";
         document.getElementById("sMkt").textContent =
           holdingsTotal > 0 ? "¥" + fmt(holdingsTotal) : "—";
         document.getElementById("sCost").textContent =
@@ -2920,6 +2964,16 @@
         } else {
           pnlStat.textContent = "—";
           pnlStat.className = "val";
+        }
+        const dayStat = document.getElementById("sDayPnl");
+        if (hasDayPnl) {
+          const daySign = dayPnl > 0 ? "+" : dayPnl < 0 ? "-" : "";
+          dayStat.textContent = "¥" + daySign + fmt(Math.abs(dayPnl));
+          dayStat.className =
+            "val " + (dayPnl > 0 ? "bad" : dayPnl < 0 ? "ok" : "");
+        } else {
+          dayStat.textContent = "—";
+          dayStat.className = "val";
         }
 
         if (newCash <= 0 && !hasHoldings) {
@@ -2942,7 +2996,10 @@
           if (overList.length)
             extra += ` · 超配：${overList.slice(0, 3).join("/")}`;
           if (stopList.length) extra += ` · 高估暂停：${stopList.join("/")}`;
-          setBanner("ok", `✓ 剩余未分配 ¥${fmt(Math.max(0, left))}${extra}`);
+          setBanner(
+            "ok",
+            `✓ 剩余未分配 ¥${fmt(Math.max(0, left ?? 0))}${extra}`,
+          );
         } else if (overList.length && !underList.length) {
           setBanner("warn", `⚠ ${overList.join("/")} 超配，暂无需加仓`);
         } else {
