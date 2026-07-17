@@ -223,28 +223,8 @@
 
       .summary-bar {
         display: grid;
-        grid-template-columns: repeat(3, 1fr);
+        grid-template-columns: repeat(4, 1fr);
         gap: 5px;
-      }
-      @media (min-width: 769px) {
-        .summary-wrap > .summary-bar .stat:nth-child(1) {
-          order: 1;
-        }
-        .summary-wrap > .summary-bar .stat:nth-child(2) {
-          order: 2;
-        }
-        .summary-wrap > .summary-bar .stat:nth-child(3) {
-          order: 4;
-        }
-        .summary-wrap > .summary-bar .stat:nth-child(4) {
-          order: 3;
-        }
-        .summary-wrap > .summary-bar .stat:nth-child(5) {
-          order: 5;
-        }
-        .summary-wrap > .summary-bar .stat:nth-child(6) {
-          order: 6;
-        }
       }
       .summary-wrap {
         position: relative;
@@ -754,6 +734,18 @@
           grid-template-columns: repeat(2, 1fr);
           gap: 6px;
         }
+        .summary-wrap > .summary-bar .stat:nth-child(1) {
+          order: 1;
+        }
+        .summary-wrap > .summary-bar .stat:nth-child(2) {
+          order: 3;
+        }
+        .summary-wrap > .summary-bar .stat:nth-child(3) {
+          order: 2;
+        }
+        .summary-wrap > .summary-bar .stat:nth-child(4) {
+          order: 4;
+        }
         .stat {
           padding: 8px;
         }
@@ -980,24 +972,16 @@
               <div class="val" id="sTotal">—</div>
             </div>
             <div class="stat">
-              <div class="lbl">浮动盈亏</div>
-              <div class="val" id="sPnl">—</div>
-            </div>
-            <div class="stat">
               <div class="lbl">剩余额度</div>
               <div class="val" id="sLeft">—</div>
             </div>
             <div class="stat">
+              <div class="lbl">浮动盈亏</div>
+              <div class="val" id="sPnl">—</div>
+            </div>
+            <div class="stat">
               <div class="lbl">今日盈亏</div>
               <div class="val" id="sDayPnl">—</div>
-            </div>
-            <div class="stat">
-              <div class="lbl">持仓市值</div>
-              <div class="val" id="sMkt">—</div>
-            </div>
-            <div class="stat">
-              <div class="lbl">持仓成本</div>
-              <div class="val" id="sCost">—</div>
             </div>
           </div>
         </div>
@@ -2955,10 +2939,6 @@
           newCash > 0 ? "¥" + fmt(newCash) : "—";
         document.getElementById("sLeft").textContent =
           left != null ? "¥" + fmt(left) : "—";
-        document.getElementById("sMkt").textContent =
-          holdingsTotal > 0 ? "¥" + fmt(holdingsTotal) : "—";
-        document.getElementById("sCost").textContent =
-          costTotal > 0 ? "¥" + fmt(costTotal) : "—";
         const pnlStat = document.getElementById("sPnl");
         if (totalPnl != null) {
           const pnlSign = totalPnl > 0 ? "+" : totalPnl < 0 ? "-" : "";
