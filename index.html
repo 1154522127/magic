@@ -265,29 +265,11 @@
         font-weight: 700;
       }
       .summary-bar.lot-bar {
-        grid-template-columns: repeat(5, 1fr);
+        grid-template-columns: repeat(4, 1fr);
       }
       .lot-bar .stat .val {
         color: var(--text);
         font-size: 0.85rem;
-      }
-      .lot-foot {
-        display: flex;
-        justify-content: flex-end;
-        align-items: baseline;
-        gap: 8px;
-        margin-top: 6px;
-        padding-right: 2px;
-      }
-      .lot-foot-lbl {
-        font-size: 0.65rem;
-        color: var(--muted);
-      }
-      .lot-foot-amt {
-        font-size: 0.82rem;
-        font-weight: 700;
-        color: var(--warning);
-        font-variant-numeric: tabular-nums;
       }
       .lot-wrap {
         position: relative;
@@ -297,6 +279,25 @@
         color: var(--muted);
         letter-spacing: 0.02em;
         margin-bottom: 5px;
+      }
+      .lot-foot {
+        display: flex;
+        justify-content: flex-end;
+        align-items: baseline;
+        gap: 6px;
+        margin-top: 4px;
+        margin-right: 16px;
+        padding: 0 2px 0 0;
+      }
+      .lot-foot-lbl {
+        font-size: 0.65rem;
+        color: var(--muted);
+      }
+      .lot-foot-amt {
+        font-size: 0.78rem;
+        font-weight: 700;
+        color: var(--warning);
+        font-variant-numeric: tabular-nums;
       }
       .val.ok {
         color: var(--success);
@@ -772,18 +773,16 @@
           display: contents;
         }
         .lot-foot {
-          display: flex;
-          align-items: end;
-          justify-content: center;
+          grid-column: 1 / -1;
           margin-top: 0;
-          padding: 8px;
-          gap: 6px;
+          margin-right: 16px;
+          padding: 0 2px 0 0;
         }
         .lot-foot-lbl {
           font-size: 0.68rem;
         }
         .lot-foot-amt {
-          font-size: 0.92rem;
+          font-size: 0.85rem;
           color: var(--warning);
         }
 
@@ -2678,7 +2677,11 @@
           const pct = Number(q.f3) || 0;
           chgMap[p.code] = pct;
           let prevClose = Number(q.f18);
-          if (!(prevClose > 0) && Number.isFinite(pct) && Math.abs(100 + pct) > 1e-9) {
+          if (
+            !(prevClose > 0) &&
+            Number.isFinite(pct) &&
+            Math.abs(100 + pct) > 1e-9
+          ) {
             prevClose = (price * 100) / (100 + pct);
           }
           if (prevClose > 0) prevCloseMap[p.code] = prevClose;
