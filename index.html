@@ -2208,8 +2208,8 @@
         const pbVal = v.pb ? v.pb.toFixed(2) : "—";
         const metrics =
           valLine(
-            valPair("PB", pbVal, pbP.toFixed(0)),
             valPair("PE", peVal, peP.toFixed(0)),
+            valPair("PB", pbVal, pbP.toFixed(0)),
           ) +
           valLine(
             valPlain("PEG", peg ? peg.toFixed(2) : "—"),
@@ -2352,11 +2352,11 @@
         const pbVal = v.pb ? v.pb.toFixed(2) : "—";
         const metrics =
           valLine(
-            valPair("PB", pbVal, pbP.toFixed(0)),
+            valPair("PE", peVal, peP.toFixed(0)),
             valPlain("股息", div.toFixed(1) + "%"),
           ) +
           valLine(
-            valPair("PE", peVal, peP.toFixed(0)),
+            valPair("PB", pbVal, pbP.toFixed(0)),
             valPlain("ROE", roe.toFixed(1) + "%"),
           );
         return {
