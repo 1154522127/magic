@@ -78,6 +78,13 @@
         margin-left: auto;
         display: flex;
         align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .topbar-meta {
+        display: flex;
+        align-items: center;
         gap: 8px;
       }
 
@@ -192,6 +199,35 @@
       .btn-outline:hover {
         background: var(--surface2);
       }
+      .btn-refresh {
+        box-sizing: border-box;
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--muted);
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 0 10px;
+        height: 32px;
+        min-height: 32px;
+        min-width: 72px;
+        width: 72px;
+        border-radius: 8px;
+        cursor: pointer;
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        -webkit-tap-highlight-color: transparent;
+      }
+      .btn-refresh:hover {
+        color: #93c5fd;
+        border-color: rgba(59, 130, 246, 0.35);
+        background: rgba(59, 130, 246, 0.12);
+      }
+      .btn-refresh:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
 
       .quote-status {
         display: flex;
@@ -200,6 +236,106 @@
         font-size: 0.72rem;
         color: var(--muted);
       }
+      .mode-toggle {
+        display: inline-flex;
+        align-items: stretch;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+        background: var(--surface);
+        height: 32px;
+        box-sizing: border-box;
+      }
+      .mode-btn {
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 0 10px;
+        min-width: 72px;
+        width: 72px;
+        height: 100%;
+        cursor: pointer;
+        white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        box-sizing: border-box;
+      }
+      .mode-btn.active {
+        background: rgba(59, 130, 246, 0.18);
+        color: #93c5fd;
+      }
+      .mode-btn:hover:not(.active) {
+        color: var(--text);
+      }
+      .adv-cell {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 3px;
+        line-height: 1.25;
+      }
+      .adv-amt {
+        font-size: 0.82rem;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        color: var(--text);
+      }
+      .adv-amt.zero {
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .adv-sub {
+        font-size: 0.58rem;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+      .lot-foot-amt.defer {
+        color: var(--muted);
+        font-weight: 600;
+      }
+      .suggest-stat .val {
+        margin-bottom: 1px;
+      }
+      .suggest-meta {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: baseline;
+        gap: 2px 4px;
+        margin-top: 3px;
+        font-size: 0.58rem;
+        line-height: 1.35;
+        color: var(--muted);
+        font-variant-numeric: tabular-nums;
+      }
+      .defer-amt {
+        color: rgba(245, 158, 11, 0.9);
+      }
+      .score-ok {
+        color: rgba(74, 222, 128, 0.95);
+      }
+      .score-mid {
+        color: rgba(147, 197, 253, 0.95);
+      }
+      .score-hi {
+        color: rgba(248, 113, 113, 0.95);
+      }
+      .ratio-badge.score-ok {
+        background: rgba(74, 222, 128, 0.15);
+        color: rgba(74, 222, 128, 0.95);
+      }
+      .ratio-badge.score-mid {
+        background: rgba(59, 130, 246, 0.15);
+        color: rgba(147, 197, 253, 0.95);
+      }
+      .ratio-badge.score-hi {
+        background: rgba(248, 113, 113, 0.15);
+        color: rgba(248, 113, 113, 0.95);
+      }
+
       .live-dot {
         width: 7px;
         height: 7px;
@@ -253,6 +389,9 @@
       }
       .lot-wrap {
         position: relative;
+      }
+      .lot-wrap[hidden] {
+        display: none !important;
       }
       .lot-title {
         font-size: 0.65rem;
@@ -420,6 +559,7 @@
       .money {
         font-variant-numeric: tabular-nums;
         font-size: 0.74rem;
+        font-weight: 700;
       }
 
       .cell-stack {
@@ -430,6 +570,22 @@
       .cell-stack .sub {
         color: var(--muted);
         font-size: 0.64rem;
+      }
+      .gap-pair {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: nowrap;
+        gap: 4px;
+        white-space: nowrap;
+      }
+      .gap-pair .gap-val {
+        font-size: 0.68rem;
+      }
+      .gap-pair .tag {
+        flex: 0 0 auto;
+        font-size: 0.58rem;
+        padding: 1px 5px;
       }
       .quote-cell {
         line-height: 1.4;
@@ -472,6 +628,15 @@
         line-height: 1.3;
         font-variant-numeric: tabular-nums;
       }
+      td.col-pnl {
+        word-break: keep-all;
+        overflow-wrap: normal;
+      }
+      .pnl .pnl-amt,
+      .pnl .pnl-pct {
+        display: inline-block;
+        white-space: nowrap;
+      }
       .pnl.up {
         color: var(--danger);
       }
@@ -501,6 +666,9 @@
       }
       .gap-val.need {
         color: var(--success);
+      }
+      .gap-val.defer {
+        color: var(--warning);
       }
       .gap-val.over {
         color: var(--warning);
@@ -652,6 +820,10 @@
         color: var(--muted);
         border-top: 1px solid var(--border);
         text-align: center;
+        line-height: 1.5;
+      }
+      .table-foot[hidden] {
+        display: none !important;
       }
 
       .mobile-hint {
@@ -688,10 +860,6 @@
           font-size: 0.95rem;
           text-align: center;
         }
-        .topbar-right {
-          margin-left: 0;
-          justify-content: center;
-        }
 
         .amount-wrap {
           flex-wrap: wrap;
@@ -723,11 +891,37 @@
           white-space: normal;
         }
 
+        .topbar-right {
+          margin-left: 0;
+          width: 100%;
+          justify-content: space-between;
+          align-items: center;
+          gap: 8px;
+        }
+
         .btn {
           min-height: 44px;
           padding: 10px 18px;
           font-size: 0.85rem;
           flex: 1;
+        }
+        .mode-toggle,
+        .btn-refresh {
+          height: 34px;
+          min-height: 34px;
+        }
+        .btn-refresh {
+          flex: 0 0 auto;
+          padding: 0 10px;
+          font-size: 0.72rem;
+          min-width: 72px;
+          width: 72px;
+        }
+        .mode-btn {
+          padding: 0 10px;
+          font-size: 0.72rem;
+          min-width: 72px;
+          width: 72px;
         }
 
         .summary-bar {
@@ -767,8 +961,8 @@
         .lot-foot {
           grid-column: 1 / -1;
           margin-top: 0;
-          margin-right: 16px;
-          padding: 0 2px 0 0;
+          margin-right: 8px;
+          padding: 2px 4px 0 0;
         }
         .lot-foot-lbl {
           font-size: 0.68rem;
@@ -823,11 +1017,20 @@
           font-size: 0.64rem;
           line-height: 1.4;
         }
-        .cell-stack.col-tgt .sub .tag {
-          display: block;
+        .cell-stack.col-tgt .sub .gap-pair,
+        .cell-stack.col-pct .sub .gap-pair {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2px;
+          white-space: normal;
+        }
+        .cell-stack.col-tgt .sub .tag,
+        .cell-stack.col-pct .sub .tag {
+          display: inline-block;
           width: fit-content;
           max-width: 100%;
-          margin: 2px auto 0;
+          margin: 0 auto;
           font-size: 0.58rem;
           padding: 1px 5px;
         }
@@ -882,20 +1085,38 @@
               +
             </button>
           </div>
-          <div class="amount-live" id="amountLive">= 12.00 万 · ¥120,000</div>
+          <div class="amount-live" id="amountLive">
+            12.00 万 · ¥120,000 · 6位数
+          </div>
         </div>
         <div class="topbar-right">
-          <div class="quote-status">
-            <span class="live-dot" id="liveDot"></span>
-            <span id="quoteStatus">获取中…</span>
-          </div>
-          <button
-            class="btn btn-outline"
-            id="refreshBtn"
-            onclick="refreshAll(true)"
+          <div
+            class="mode-toggle"
+            id="modeToggle"
+            role="group"
+            aria-label="买入模式"
           >
-            刷新
-          </button>
+            <button type="button" class="mode-btn" data-mode="dca">
+              总额配仓
+            </button>
+            <button type="button" class="mode-btn active" data-mode="build">
+              估值补仓
+            </button>
+          </div>
+          <div class="topbar-meta">
+            <div class="quote-status">
+              <span class="live-dot" id="liveDot"></span>
+              <span id="quoteStatus">获取中…</span>
+            </div>
+            <button
+              type="button"
+              class="btn-refresh"
+              id="refreshBtn"
+              onclick="refreshAll(true)"
+            >
+              刷新
+            </button>
+          </div>
         </div>
       </div>
 
@@ -945,25 +1166,33 @@
             <tbody id="mainBody"></tbody>
           </table>
         </div>
-        <div class="signal-legend">
+        <div class="signal-legend" id="signalLegend">
           <span class="legend-title">买入阶梯</span>
           <span class="tag tag-s5">积极买入</span>
           <span class="tag tag-s4">正常买入</span>
           <span class="tag tag-s3">可以买入</span>
           <span class="tag tag-s2">减半买入</span>
           <span class="tag tag-s1">暂停买入</span>
+          <span class="legend-hint" id="legendHint"
+            >总额配仓：目标=总额×比例 · 待补=目标−市值</span
+          >
         </div>
-        <div class="table-foot">
-          占比=成本值/投入总额 · 目标值=投入总额×比例 · 待补=目标值−成本值 ·
+        <div class="table-foot" id="tableFoot">
+          占比=市值/投入总额 · 目标值=投入总额×比例 · 待补=目标值−市值 ·
           PE/PB=历史分位 · 溢价=现价高于IOPV ·
           ERP=盈利收益率−国债(美股US10Y/A股CN10Y) · 仅供参考
+        </div>
+        <div class="table-foot" id="factorRule" hidden>
+          分位系数：≤38 偏便宜→约100% · 38–88 中间→余弦递减 · ≥88 偏贵→0%延后 ·
+          打满=系数约100% · 暂停→0 · 减半→×0.5 ·
+          建议=待补(目标−市值)×系数（手数取整；买不满一手→再买一手差多少）
         </div>
       </div>
 
       <div class="bottom-area">
         <div class="banner ok" id="banner">等待数据…</div>
         <div class="banner info" id="valBanner">
-          估值加载中…（成长科技·博格预期·A股双分位·股息PB·股债比价+收益率）
+          估值加载中…（成长科技·启发预期·股息市净·股债比价+CN10Y）
         </div>
         <div class="summary-wrap">
           <div class="summary-bar">
@@ -1001,17 +1230,17 @@
     <script>
       /* ── 表格列宽配置：改 minWidth 数字即可（单位 px）── */
       const TABLE_COLS = {
-        name: { label: "名称", minWidth: { desktop: 68, mobile: 68 } },
+        name: { label: "名称", minWidth: { desktop: 58, mobile: 58 } },
         quote: { label: "溢价/涨跌", minWidth: { desktop: 68, mobile: 58 } },
         val: { label: "估值指标", minWidth: { desktop: 148, mobile: 158 } },
-        pnl: { label: "盈亏", minWidth: { desktop: 68, mobile: 58 } },
+        pnl: { label: "盈亏", minWidth: { desktop: 68, mobile: 68 } },
         adv: { label: "买入建议", minWidth: { desktop: 78, mobile: 68 } },
         hold: { label: "持仓", minWidth: { desktop: 68, mobile: 72 } },
         cost: { label: "成本", minWidth: { desktop: 68, mobile: 72 } },
         price: { label: "现价", minWidth: { desktop: 58, mobile: 58 } },
         cm: { label: "成本/市值", minWidth: { desktop: 88, mobile: 68 } },
-        tgt: { label: "目标/待补", minWidth: { desktop: 128, mobile: 68 } },
-        pct: { label: "占比/比例", minWidth: { desktop: 78, mobile: 68 } },
+        tgt: { label: "目标/待补", minWidth: { desktop: 128, mobile: 72 } },
+        pct: { label: "占比/比例", minWidth: { desktop: 128, mobile: 72 } },
       };
 
       const TABLE_COL_KEYS = Object.keys(TABLE_COLS);
@@ -1057,7 +1286,7 @@
         {
           code: "513100",
           name: "纳指100",
-          ratio: 0.18,
+          ratio: 0.12,
           secid: "1.513100",
           indexCode: "NDX",
           method: "ndx",
@@ -1065,15 +1294,15 @@
         {
           code: "513500",
           name: "标普500",
-          ratio: 0.27,
+          ratio: 0.26,
           secid: "1.513500",
           indexCode: "SP500",
           method: "sp500",
         },
         {
           code: "515450",
-          name: "红利低波50",
-          ratio: 0.33,
+          name: "红利50",
+          ratio: 0.4,
           secid: "1.515450",
           indexCode: "CSIH30269",
           method: "dividend",
@@ -1091,7 +1320,9 @@
       const LOT = 100;
       const HOLDINGS_KEY = "magic_holdings";
       const AMOUNT_KEY = "magic_amount";
+      const MODE_KEY = "magic_buy_mode";
       const REFRESH_MS = 30000;
+      let buyMode = "build"; // build=估值补仓 · dca=总额配仓
       let fetching = false;
       let valMap = {};
       let valDate = "";
@@ -1105,6 +1336,10 @@
       const MACRO_CACHE_KEY = "magic_macro_cache";
       const MACRO_CACHE_MAX_AGE = 7 * 86400000;
       const US_BOND_YIELD_DEFAULT = 4.3;
+      const CN_BOND_YIELD_DEFAULT = 1.8;
+      /* 国内 10Y：偏高→债便宜可积极；偏低→债贵减半（近年中枢约 1.6–3%） */
+      const CN_BOND_ATTRACTIVE_Y = 3.2;
+      const CN_BOND_RICH_Y = 2.2;
       const FX_REF_LOW = 6.3;
       const FX_REF_HIGH = 7.25;
       let macroCtx = {
@@ -1159,7 +1394,7 @@
               ? wan.toFixed(1) + " 万"
               : wan.toFixed(2) + " 万";
         return {
-          text: `= ${wanStr} · ¥${n.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} · ${Math.floor(n).toString().length}位数`,
+          text: `${wanStr} · ¥${n.toLocaleString("zh-CN", { maximumFractionDigits: 0 })} · ${Math.floor(n).toString().length}位数`,
           empty: false,
         };
       }
@@ -1658,13 +1893,6 @@
         return { v: null, proxy: null };
       }
 
-      function extractBondYield(map) {
-        for (const v of Object.values(map)) {
-          if (v?.bond_yeild > 0) return v.bond_yeild * 100;
-        }
-        return 4;
-      }
-
       function loadMacroCache() {
         try {
           const c = JSON.parse(localStorage.getItem(MACRO_CACHE_KEY) || "null");
@@ -1688,6 +1916,12 @@
       function applyMacroCache() {
         const c = loadMacroCache();
         if (!c) return;
+        if (
+          c.bondYieldPct != null &&
+          c.bondYieldPct > 0 &&
+          c.bondYieldPct < 4.5
+        )
+          macroCtx.bondYieldPct = c.bondYieldPct;
         if (c.usBondYieldPct != null)
           macroCtx.usBondYieldPct = c.usBondYieldPct;
         if (c.usdcny != null) {
@@ -1745,16 +1979,24 @@
         return info != null && info.pct >= 80;
       }
 
+      let jsonpSeq = 0;
       function fetchJsonp(url) {
         return new Promise((resolve) => {
-          const cb = "_jp" + Date.now();
+          /* 并行请求不能只用 Date.now()，同毫秒会撞名 → 回调被删后抛 ReferenceError */
+          const cb = "_jp" + Date.now() + "_" + ++jsonpSeq;
           const s = document.createElement("script");
           let settled = false;
           const done = (val) => {
             if (settled) return;
             settled = true;
             clearTimeout(timer);
-            delete window[cb];
+            /* 晚到的脚本仍会调 cb；先换成空函数，再延迟删除 */
+            window[cb] = function () {};
+            setTimeout(() => {
+              try {
+                delete window[cb];
+              } catch (_) {}
+            }, 60000);
             s.remove();
             resolve(val ?? null);
           };
@@ -1767,12 +2009,14 @@
             "callback=" +
             cb +
             "&_=" +
-            Date.now();
+            Date.now() +
+            "_" +
+            jsonpSeq;
           document.body.appendChild(s);
         });
       }
 
-      function parseUsBondRows(rows) {
+      function parseBondYieldRows(rows) {
         if (!Array.isArray(rows) || !rows.length) return null;
         const y = Number(rows[rows.length - 1]?.c);
         return Number.isFinite(y) && y > 0 && y < 20 ? y : null;
@@ -1782,13 +2026,26 @@
         const json = await fetchJsonp(
           "https://bond.finance.sina.com.cn/hq/gb/daily?symbol=US10YT",
         );
-        const y = parseUsBondRows(json?.result?.data);
+        const y = parseBondYieldRows(json?.result?.data);
         if (y != null) return y;
         return loadMacroCache()?.usBondYieldPct ?? null;
       }
 
+      async function fetchCnBondYield() {
+        const json = await fetchJsonp(
+          "https://bond.finance.sina.com.cn/hq/gb/daily?symbol=CN10YT",
+        );
+        const y = parseBondYieldRows(json?.result?.data);
+        if (y != null) return y;
+        return loadMacroCache()?.bondYieldPct ?? null;
+      }
+
       function usBondYieldForErp() {
         return macroCtx.usBondYieldPct ?? US_BOND_YIELD_DEFAULT;
+      }
+
+      function cnBondYieldForErp() {
+        return macroCtx.bondYieldPct ?? CN_BOND_YIELD_DEFAULT;
       }
 
       let fxHistMem = [];
@@ -2010,16 +2267,23 @@
 
       async function loadMacro() {
         applyMacroCache();
-        const [rate, usBond] = await Promise.all([
+        const [rate, usBond, cnBond] = await Promise.all([
           fetchUsdcny(),
           fetchUsBondYield(),
+          fetchCnBondYield(),
         ]);
         const fxRate = rate ?? macroCtx.usdcny;
         if (fxRate != null) syncUsdcny(fxRate);
+        const patch = {};
         if (usBond != null) {
           macroCtx.usBondYieldPct = usBond;
-          saveMacroCache({ usBondYieldPct: usBond });
+          patch.usBondYieldPct = usBond;
         }
+        if (cnBond != null) {
+          macroCtx.bondYieldPct = cnBond;
+          patch.bondYieldPct = cnBond;
+        }
+        if (Object.keys(patch).length) saveMacroCache(patch);
       }
 
       function logSignalHistory(results) {
@@ -2063,6 +2327,7 @@
       }
 
       function bogleReturn(v) {
+        /* 启发式预期：股息 + 部分ROE/盈利收益率 − 高分位惩罚（非经典 Bogle） */
         const div = valPct(v, "yeild");
         const roe = valPct(v, "roe");
         const peP = valPct(v, "pe_percentile");
@@ -2082,6 +2347,254 @@
         const s = SIGNAL_MAP[action];
         if (!s) return `<span class="tag tag-na">${action}</span>`;
         return `<span class="tag ${s.tagCls}">${action}</span>`;
+      }
+
+      /*
+       * 估值补仓 = 欠配金额 × CAPE/估值分位条件化部署（非经典 VA）
+       * - 目标市值 = 投入总额 × 目标比例；待补/欠配 = max(0, 目标−市值)
+       * - 建议金额 = 待补 × 部署系数（已扣持仓；剩余记延后）
+       * - 分位条件化：≤38%→约满仓部署；≥88%→0；中间余弦衰减
+       * - 「暂停」或硬停 → 系数 0；「减半」→ 系数再 ×0.5
+       * - 国债：股贵则债便宜，对权益综合分位取反后再算系数
+       */
+      const BUILD_CHEAP_PCT = 38;
+      const BUILD_RICH_PCT = 88;
+
+      function actionToProxyScore(action) {
+        switch (action) {
+          case "积极买入":
+            return 15;
+          case "正常买入":
+            return 40;
+          case "可以买入":
+            return 60;
+          case "减半买入":
+            return 75;
+          case "暂停买入":
+            return 92;
+          default:
+            return 70;
+        }
+      }
+
+      /* 部署用分位：权益越低越便宜；国债对权益分位取反 */
+      function buildDeployScore(sig, method) {
+        if (!sig || sig.level === "na" || sig.action === "暂无数据")
+          return null;
+        let raw =
+          sig.score != null && Number.isFinite(sig.score)
+            ? sig.score
+            : actionToProxyScore(sig.action);
+        raw = Math.max(0, Math.min(100, raw));
+        if (method === "bond") return 100 - raw;
+        return raw;
+      }
+
+      /* CAPE-conditional：余弦平滑，避免档位悬崖 */
+      function buildDeployFactor(sig, method) {
+        if (!sig || sig.level === "na" || sig.action === "暂无数据") return 0;
+        /* 暂停 / 溢价硬停：一律不建议买 */
+        if (sig.hardStop || sig.level === "stop") return 0;
+
+        const score = buildDeployScore(sig, method);
+        if (score == null) return 0;
+        let factor;
+        if (score <= BUILD_CHEAP_PCT) factor = 1;
+        else if (score >= BUILD_RICH_PCT) factor = 0;
+        else {
+          const t =
+            (score - BUILD_CHEAP_PCT) / (BUILD_RICH_PCT - BUILD_CHEAP_PCT);
+          factor = 0.5 * (1 + Math.cos(Math.PI * t));
+        }
+        /* 减半买入：再乘 0.5（与标签一致；可与分位衰减叠乘） */
+        if (sig.level === "warn") factor *= 0.5;
+        return factor;
+      }
+
+      function toBuildSignal(sig, method) {
+        if (!sig) return sig;
+        if (sig.action === "暂无数据" || sig.level === "na") {
+          return { ...sig, deployScore: null, factor: 0 };
+        }
+        const deployScore = buildDeployScore(sig, method);
+        const factor = buildDeployFactor(sig, method);
+        return { ...sig, deployScore, factor };
+      }
+
+      /* 估值补仓建议：基数=待补(目标−市值)；建议=待补×估值系数 */
+      function suggestBuyNow(baseAmount, price, factor, totalAmount) {
+        const need = Math.max(0, baseAmount || 0);
+        const total = Math.max(0, totalAmount || 0);
+        if (!(price > 0) || factor <= 0 || need < 1) {
+          return {
+            yuan: 0,
+            lots: 0,
+            budget: 0,
+            deferred: need,
+            valDefer: need,
+            lotRemain: 0,
+            lotShort: 0,
+            factor,
+            pctOfTotal: 0,
+            deferPct: total > 0 ? (need / total) * 100 : 0,
+          };
+        }
+        const budget = need * factor;
+        const lotYuan = price * LOT;
+        const lots = Math.floor(budget / lotYuan);
+        const yuan = lots * lotYuan;
+        const valDefer = Math.max(0, need - budget);
+        const lotRemain = Math.max(0, budget - yuan);
+        /* 再买一手还差多少（有零头时） */
+        const lotShort = lotRemain >= 1 ? Math.max(0, lotYuan - lotRemain) : 0;
+        const deferred = Math.max(0, need - yuan);
+        return {
+          yuan,
+          lots,
+          budget,
+          deferred,
+          valDefer,
+          lotRemain,
+          lotShort,
+          factor,
+          pctOfTotal: total > 0 ? (yuan / total) * 100 : 0,
+          deferPct: total > 0 ? (deferred / total) * 100 : 0,
+        };
+      }
+
+      /* 目标=总额×比例；总额配仓待补=目标−市值；估值补仓待补=(目标−市值)−延后 */
+      function lotsTag(lots, warn) {
+        const n = lots > 0 ? lots : 0;
+        const cls = warn ? "tag tag-warn" : "tag tag-ok";
+        return `<span class="${cls}">${n}手</span>`;
+      }
+
+      function gapPairHtml(amountHtml, lotsHtml) {
+        return `<span class="gap-pair">${amountHtml}${lotsHtml}</span>`;
+      }
+
+      function renderTgtNeedCell(r, money) {
+        const el = document.getElementById("tgtneed-" + r.code);
+        if (!el) return;
+        if (!(getTotalAmount() > 0)) {
+          el.textContent = "—";
+          return;
+        }
+
+        let needHtml;
+        if (r.gap < -1) {
+          needHtml = `<span class="gap-val over">超配 ${money(Math.abs(r.gap))}</span>`;
+        } else if (buyMode === "build") {
+          const valDefer = r.suggest?.valDefer || 0;
+          const nowFill = Math.max(0, (r.needFill || 0) - valDefer);
+          const nowLots =
+            r.minLot > 0 && nowFill > 0 ? Math.floor(nowFill / r.minLot) : 0;
+          if (nowFill >= 1 || (r.needFill || 0) >= 1) {
+            needHtml = gapPairHtml(
+              `<span class="gap-val need">${money(nowFill)}</span>`,
+              lotsTag(nowLots, false),
+            );
+          } else {
+            needHtml = `<span class="gap-val ok">—</span>`;
+          }
+        } else if (r.needFill >= 1) {
+          needHtml = gapPairHtml(
+            `<span class="gap-val need">${money(r.needFill)}</span>`,
+            lotsTag(r.needLots, false),
+          );
+        } else {
+          needHtml = `<span class="gap-val ok">—</span>`;
+        }
+        el.innerHTML = `<span class="money">${money(r.targetValue)}</span><br><span class="sub">${needHtml}</span>`;
+      }
+
+      function syncModeUI() {
+        document.querySelectorAll(".mode-btn").forEach((btn) => {
+          btn.classList.toggle("active", btn.dataset.mode === buyMode);
+        });
+        const hint = document.getElementById("legendHint");
+        const foot = document.getElementById("tableFoot");
+        const legend = document.getElementById("signalLegend");
+        const factorRule = document.getElementById("factorRule");
+        const pctTh = document.querySelector("th.col-pct");
+        const pctLabel = buyMode === "build" ? "分位/延后" : "占比/比例";
+        if (pctTh) {
+          pctTh.innerHTML = `<span class="hd-full">${pctLabel}</span><span class="hd-short">${pctLabel}</span>`;
+        }
+        if (factorRule) factorRule.hidden = buyMode !== "build";
+        if (buyMode === "build") {
+          const ratioStr = PORTFOLIO.map((p) => Math.round(p.ratio * 100)).join(
+            "/",
+          );
+          if (hint)
+            hint.textContent =
+              "估值补仓：目标=总额×比例 · 待补=(目标−市值)−延后 · 延后按系数";
+          if (foot)
+            foot.textContent = `估值补仓：目标=总额×比例(${ratioStr}) · 缺口=目标−市值 · 延后=缺口×(1−系数) · 待补=缺口−延后 · 暂停→0 · 减半→×0.5 · 仅供参考`;
+          if (legend) legend.hidden = false;
+        } else {
+          if (hint)
+            hint.textContent = "总额配仓：目标=总额×比例 · 待补=目标−市值";
+          if (foot)
+            foot.textContent =
+              "总额配仓：占比=市值/投入总额 · 目标值=投入总额×比例 · 待补=目标值−市值 · PE/PB=历史分位 · 溢价=现价高于IOPV · ERP=盈利收益率−国债 · 仅供参考";
+          if (legend) legend.hidden = false;
+        }
+      }
+
+      function renderPctCell(r, money) {
+        const pctEl = document.getElementById("pct-" + r.code);
+        if (!pctEl) return;
+
+        if (buyMode === "build") {
+          const score = r.buildSig?.deployScore;
+          const scoreHtml =
+            score != null && Number.isFinite(score)
+              ? `<span class="money ${scoreMetaCls(score)}">${Number(score).toFixed(1)}%</span>`
+              : `<span class="money">—</span>`;
+          const valDefer = r.suggest?.valDefer || 0;
+          const deferLots =
+            r.minLot > 0 && valDefer > 0 ? Math.floor(valDefer / r.minLot) : 0;
+          let deferHtml;
+          if (valDefer >= 1) {
+            deferHtml = gapPairHtml(
+              `<span class="gap-val defer">${money(valDefer)}</span>`,
+              lotsTag(deferLots, true),
+            );
+          } else {
+            deferHtml = gapPairHtml(
+              `<span class="gap-val defer">${money(0)}</span>`,
+              lotsTag(0, true),
+            );
+          }
+          pctEl.innerHTML = `${scoreHtml}<br><span class="sub">${deferHtml}</span>`;
+          return;
+        }
+
+        const targetHtml = `<span class="ratio-badge" style="opacity:.65">${r.targetPct.toFixed(0)}%</span>`;
+        if (getTotalAmount() > 0 && r.marketValue > 0) {
+          pctEl.innerHTML = `<span class="ratio-badge">${r.actualPct.toFixed(1)}%</span><br>${targetHtml}`;
+        } else {
+          pctEl.innerHTML = `—<br>${targetHtml}`;
+        }
+      }
+
+      function loadBuyMode() {
+        try {
+          const v = localStorage.getItem(MODE_KEY);
+          if (v === "dca" || v === "build") buyMode = v;
+        } catch (_) {}
+        syncModeUI();
+      }
+
+      function setBuyMode(mode) {
+        if (mode !== "dca" && mode !== "build") return;
+        buyMode = mode;
+        try {
+          localStorage.setItem(MODE_KEY, buyMode);
+        } catch (_) {}
+        syncModeUI();
+        calculate();
       }
 
       function valPair(label, value, pct) {
@@ -2163,9 +2676,9 @@
         if (pbP >= 90) sig = downgrade(sig, "减半买入", "warn", "tag-s2");
         if (pbP >= 95 || score >= 85)
           sig = { action: "暂停买入", level: "stop", tagCls: "tag-s1" };
-        if (peg > 2.0 && score >= 60)
+        if (peg > 2.5 && score >= 60)
           sig = downgrade(sig, "减半买入", "warn", "tag-s2");
-        else if (peg > 1.5 && score >= 70)
+        else if (peg > 2.0 && score >= 70)
           sig = downgrade(sig, "减半买入", "warn", "tag-s2");
         if (erp < -1.5 && score >= 55)
           sig = { action: "暂停买入", level: "stop", tagCls: "tag-s1" };
@@ -2198,7 +2711,7 @@
         };
       }
 
-      /* 标普500：博格预期收益法 — PE分位 + 博格预期 + ERP */
+      /* 标普500：启发预期法 — PE分位 + 启发式预期 + ERP */
       function evalSp500(v) {
         const peP = valPct(v, "pe_percentile");
         const pbP = valPct(v, "pb_percentile");
@@ -2229,7 +2742,7 @@
         const metrics =
           valLine(
             valPair("PE", peVal, peP.toFixed(0)),
-            valPlain("博格", bogle.toFixed(1) + "%"),
+            valPlain("预期", bogle.toFixed(1) + "%"),
           ) +
           valLine(
             valPlain("股息", div.toFixed(1) + "%"),
@@ -2243,19 +2756,19 @@
           bogle,
           score: peP,
           metrics,
-          detail: `${zone}·博格预期法`,
+          detail: `${zone}·启发预期法`,
           zone,
         };
       }
 
-      /* 中证A500：A股双分位法 — PE/PB综合 + ERP/ROE/PEG */
+      /* A股双分位（预留）：PE/PB综合 + ERP/ROE/PEG；当前组合未接入 */
       function evalAShare(v, proxy) {
         const peP = valPct(v, "pe_percentile");
         const pbP = valPct(v, "pb_percentile");
         const div = valPct(v, "yeild");
         const roe = valPct(v, "roe");
         const peg = v.peg || 0;
-        const erp = equityRiskPremium(v);
+        const erp = equityRiskPremium(v, cnBondYieldForErp());
         const score = peP * 0.55 + pbP * 0.45;
 
         let sig = signalFromPercentile(score, div > 2.5);
@@ -2304,8 +2817,8 @@
         const roe = valPct(v, "roe");
         const score = pbP * 0.65 + peP * 0.35;
 
-        let sig = signalFromPercentile(score, div > 4);
-        if (div > 5 && pbP < 75) {
+        let sig = signalFromPercentile(score, div > 3.5);
+        if (div > 4.5 && pbP < 75) {
           if (sig.level === "stop")
             sig = { action: "减半买入", level: "warn", tagCls: "tag-s2" };
           else if (sig.level === "warn")
@@ -2313,9 +2826,9 @@
           else if (sig.level === "ok")
             sig = { action: "正常买入", level: "ok", tagCls: "tag-s4" };
         }
-        if (div > 6 && pbP < 60 && roe >= 8)
+        if (div > 5.5 && pbP < 60 && roe >= 8)
           sig = { action: "积极买入", level: "buy", tagCls: "tag-s5" };
-        if (div > 5 && roe < 6)
+        if (div > 4.5 && roe < 6)
           sig = downgrade(sig, "减半买入", "warn", "tag-s2");
 
         const zone = zoneFromPct(pbP);
@@ -2342,18 +2855,19 @@
         };
       }
 
-      /* 十年国债：股债比价 + 10Y收益率水平 */
+      /* 十年国债：股债比价 + 真实 CN10Y 水平（新浪 CN10YT） */
       function evalBond(ctx) {
         const { avgScore, highCount, lowCount, bondYieldPct } = ctx;
         let sig, metrics, detail, zone;
-        const y = bondYieldPct ?? 4;
+        const y = bondYieldPct ?? CN_BOND_YIELD_DEFAULT;
+        const yStr = y.toFixed(2) + "%";
 
         if (avgScore >= 75 || highCount >= 3) {
-          if (y >= 4.5) {
+          if (y >= CN_BOND_ATTRACTIVE_Y) {
             sig = { action: "积极买入", level: "buy", tagCls: "tag-s5" };
             zone = "合理区";
             metrics = valLine(
-              valPlain("10Y", y.toFixed(1) + "%"),
+              valPlain("10Y", yStr),
               valPlain("股综", avgScore.toFixed(0) + "%"),
             );
             detail = `${zone}·股债比价·债优`;
@@ -2361,7 +2875,7 @@
             sig = { action: "可以买入", level: "ok", tagCls: "tag-s3" };
             zone = "合理区";
             metrics = valLine(
-              valPlain("10Y", y.toFixed(1) + "%"),
+              valPlain("10Y", yStr),
               valPlain("股综", avgScore.toFixed(0) + "%"),
             );
             detail = `${zone}·股债比价·维持`;
@@ -2370,15 +2884,15 @@
           sig = { action: "减半买入", level: "warn", tagCls: "tag-s2" };
           zone = "偏低区";
           metrics = valLine(
-            valPlain("10Y", y.toFixed(1) + "%"),
+            valPlain("10Y", yStr),
             valPlain("低估", lowCount + "只"),
           );
           detail = `${zone}·股债比价·减债`;
-        } else if (y < 2.5) {
+        } else if (y < CN_BOND_RICH_Y) {
           sig = { action: "减半买入", level: "warn", tagCls: "tag-s2" };
           zone = "偏低区";
           metrics = valLine(
-            valPlain("10Y", y.toFixed(1) + "%"),
+            valPlain("10Y", yStr),
             valPlain("股综", avgScore.toFixed(0) + "%"),
           );
           detail = `${zone}·股债比价·收益低`;
@@ -2386,7 +2900,7 @@
           sig = { action: "正常买入", level: "ok", tagCls: "tag-s4" };
           zone = "合理区";
           metrics = valLine(
-            valPlain("10Y", y.toFixed(1) + "%"),
+            valPlain("10Y", yStr),
             valPlain("股综", avgScore.toFixed(0) + "%"),
           );
           detail = `${zone}·股债比价·维持`;
@@ -2467,6 +2981,7 @@
             r.action = "暂停买入";
             r.level = "stop";
             r.tagCls = "tag-s1";
+            r.hardStop = true;
             r.detail = (r.detail || "") + ` · 溢价${pct.toFixed(1)}%过高`;
           } else if (qdiiFlag && pct > 3) {
             if (r.level === "buy" || r.level === "ok") {
@@ -2495,13 +3010,19 @@
         return r;
       }
 
-      function renderValuation() {
+      function renderValuation(rows) {
         ensureMacroUsdcny();
         const results = evaluatePortfolio();
         logSignalHistory(results);
         let buyN = 0,
           warnN = 0,
           stopN = 0;
+        const rowByCode = {};
+        if (rows) rows.forEach((r) => (rowByCode[r.code] = r));
+
+        let suggestTotal = 0;
+        let deferTotal = 0;
+        let valDeferTotal = 0;
 
         PORTFOLIO.forEach((p) => {
           const r = results[p.code];
@@ -2515,6 +3036,23 @@
             r.detail,
             r.detailExtra,
           );
+
+          const row = rowByCode[p.code];
+          if (buyMode === "build" && row) {
+            const buildSig = toBuildSignal(r, p.method);
+            const totalAmt = getTotalAmount();
+            const suggest = suggestBuyNow(
+              row.needFill,
+              row.price,
+              buildSig.factor || 0,
+              totalAmt,
+            );
+            row.suggest = suggest;
+            row.buildSig = buildSig;
+            suggestTotal += suggest.yuan;
+            deferTotal += suggest.deferred;
+            valDeferTotal += suggest.valDefer;
+          }
           document.getElementById("adv-" + p.code).innerHTML = renderSignalTag(
             r.action,
           );
@@ -2524,9 +3062,19 @@
         });
 
         const parts = [];
-        if (buyN) parts.push(`${buyN} 只可买`);
-        if (warnN) parts.push(`${warnN} 只建议减半`);
-        if (stopN) parts.push(`${stopN} 只建议暂停`);
+        if (buyMode === "build") {
+          const totalAmt = getTotalAmount();
+          if (totalAmt <= 0) parts.push("请先填投入总额");
+          else {
+            parts.push(`本次建议 ¥${fmt(suggestTotal)}`);
+            if (valDeferTotal >= 1)
+              parts.push(`估值延后 ¥${fmt(valDeferTotal)}`);
+          }
+        } else {
+          if (buyN) parts.push(`${buyN} 只可买`);
+          if (warnN) parts.push(`${warnN} 只建议减半`);
+          if (stopN) parts.push(`${stopN} 只建议暂停`);
+        }
         const sourceStr =
           valSource === "danjuan"
             ? "·蛋卷"
@@ -2540,7 +3088,7 @@
           ? ` · 数据${valDate}${sourceStr}${staleStr}`
           : "";
         const macroStr = macroCtx.bondYieldPct
-          ? ` · CN10Y${macroCtx.bondYieldPct.toFixed(1)}%`
+          ? ` · CN10Y${macroCtx.bondYieldPct.toFixed(2)}%`
           : "";
         const usBondStr = macroCtx.usBondYieldPct
           ? ` · US10Y${macroCtx.usBondYieldPct.toFixed(1)}%`
@@ -2551,8 +3099,9 @@
           isLocalAppPage() && valSource === "mirror"
             ? " · 蛋卷实时：先运行 python3 proxy/valuation.py，再点刷新"
             : "";
+        const head = buyMode === "build" ? "估值补仓" : "估值结论";
         setValBanner(
-          `📊 估值结论：${parts.join("，") || "—"}${dateStr}${macroStr}${usBondStr}${fxStr}${proxyHint}`,
+          `📊 ${head}：${parts.join("，") || "—"}${dateStr}${macroStr}${usBondStr}${fxStr}${proxyHint}`,
           stopN >= 2 ||
             (ageDays != null && ageDays > 2) ||
             (isLocalAppPage() && valSource === "mirror")
@@ -2561,13 +3110,19 @@
         );
       }
 
+      function scoreMetaCls(score) {
+        if (score == null || !Number.isFinite(score)) return "";
+        if (score <= BUILD_CHEAP_PCT) return "score-ok";
+        if (score >= BUILD_RICH_PCT) return "score-hi";
+        return "score-mid";
+      }
+
       async function loadValuation() {
         try {
           const { map, date, source } = await fetchValuationData();
           valMap = map;
           valDate = date;
           valSource = source || "";
-          macroCtx.bondYieldPct = extractBondYield(valMap);
           return true;
         } catch (e) {
           valSource = "";
@@ -2827,7 +3382,8 @@
 
         const rows = holdings.map((h) => {
           const targetValue = newCash > 0 ? newCash * h.ratio : 0;
-          const gap = targetValue - h.costBasis;
+          /* 欠配/超配按市值，贴近真实仓位 */
+          const gap = targetValue - h.marketValue;
           const needFill = gap > 0 ? gap : 0;
           const minLot = h.price > 0 ? h.price * LOT : 0;
           const allocTarget = newCash > 0 ? newCash * h.ratio : 0;
@@ -2841,7 +3397,9 @@
           const needLots =
             minLot > 0 && needFill > 0 ? Math.floor(needFill / minLot) : 0;
           const actualPct =
-            newCash > 0 && h.costBasis > 0 ? (h.costBasis / newCash) * 100 : 0;
+            newCash > 0 && h.marketValue > 0
+              ? (h.marketValue / newCash) * 100
+              : 0;
           const targetPct = h.ratio * 100;
           const val = valResults[h.code];
           return {
@@ -2877,40 +3435,17 @@
             const pnlSign = r.pnl > 0 ? "+" : r.pnl < 0 ? "-" : "";
             const pnlPctText =
               (r.pnlPct > 0 ? "+" : "") + r.pnlPct.toFixed(3) + "%";
-            pnlEl.innerHTML = `<span class="pnl ${r.pnl > 0 ? "up" : r.pnl < 0 ? "down" : "flat"}">¥${pnlSign}${fmt(Math.abs(r.pnl))}<br>${pnlPctText}</span>`;
+            pnlEl.innerHTML = `<span class="pnl ${r.pnl > 0 ? "up" : r.pnl < 0 ? "down" : "flat"}"><span class="pnl-amt">¥${pnlSign}${fmt(Math.abs(r.pnl))}</span><br><span class="pnl-pct">${pnlPctText}</span></span>`;
           } else {
             pnlEl.textContent = "—";
           }
-
-          const pctEl = document.getElementById("pct-" + r.code);
-          const targetHtml = `<span class="ratio-badge" style="opacity:.65">${r.targetPct.toFixed(0)}%</span>`;
-          if (newCash > 0 && r.costBasis > 0) {
-            pctEl.innerHTML = `<span class="ratio-badge">${r.actualPct.toFixed(1)}%</span><br>${targetHtml}`;
-          } else {
-            pctEl.innerHTML = `—<br>${targetHtml}`;
-          }
-
-          const tgtNeedEl = document.getElementById("tgtneed-" + r.code);
-          if (newCash > 0) {
-            let needHtml;
-            if (r.needFill >= 1) {
-              const lotsHtml =
-                r.needLots > 0
-                  ? `<span class="tag tag-ok">${r.needLots}手</span>`
-                  : `<span class="tag tag-ok">0手</span>`;
-              needHtml = `<span class="gap-val need">${money(r.needFill)}</span> ${lotsHtml}`;
-            } else if (r.gap < -1) {
-              needHtml = `<span class="gap-val over">超配 ${money(Math.abs(r.gap))}</span>`;
-            } else {
-              needHtml = `<span class="gap-val ok">—</span>`;
-            }
-            tgtNeedEl.innerHTML = `<span class="money">${money(r.targetValue)}</span><br><span class="sub">${needHtml}</span>`;
-          } else {
-            tgtNeedEl.textContent = "—";
-          }
         });
 
-        renderValuation();
+        renderValuation(rows);
+        rows.forEach((r) => {
+          renderTgtNeedCell(r, money);
+          renderPctCell(r, money);
+        });
 
         const totalPnl = costTotal > 0 ? holdingsTotal - costTotal : null;
         const left = newCash > 0 ? newCash - costTotal : null;
@@ -2975,11 +3510,21 @@
           setBanner("warn", `⚠ 部分不足1手（${bad}）`);
         } else if (newCash > 0) {
           let extra = "";
-          if (underList.length)
-            extra = ` · 欠配：${underList.slice(0, 3).join("/")}`;
-          if (overList.length)
-            extra += ` · 超配：${overList.slice(0, 3).join("/")}`;
-          if (stopList.length) extra += ` · 高估暂停：${stopList.join("/")}`;
+          if (buyMode === "build") {
+            const sug = rows.reduce((s, r) => s + (r.suggest?.yuan || 0), 0);
+            const valDef = rows.reduce(
+              (s, r) => s + (r.suggest?.valDefer || 0),
+              0,
+            );
+            extra = ` · 本次建议买入 ¥${fmt(sug)}`;
+            if (valDef >= 1) extra += ` · 估值延后 ¥${fmt(valDef)}`;
+          } else {
+            if (underList.length)
+              extra = ` · 欠配：${underList.slice(0, 3).join("/")}`;
+            if (overList.length)
+              extra += ` · 超配：${overList.slice(0, 3).join("/")}`;
+            if (stopList.length) extra += ` · 高估暂停：${stopList.join("/")}`;
+          }
           setBanner(
             "ok",
             `✓ 剩余未分配 ¥${fmt(Math.max(0, left ?? 0))}${extra}`,
@@ -2998,11 +3543,16 @@
 
       applyTableColWidths();
       applyMacroCache();
+      loadBuyMode();
       loadAmount();
       initTable();
       updateAmountLive();
       refreshAll(false);
       setInterval(() => refreshAll(false), REFRESH_MS);
+
+      document.querySelectorAll(".mode-btn").forEach((btn) => {
+        btn.addEventListener("click", () => setBuyMode(btn.dataset.mode));
+      });
 
       document
         .getElementById("amountMinus")
