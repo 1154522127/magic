@@ -1100,7 +1100,7 @@
               总额配仓
             </button>
             <button type="button" class="mode-btn active" data-mode="build">
-              估值补仓
+              估值配仓
             </button>
           </div>
           <div class="topbar-meta">
@@ -1322,7 +1322,7 @@
       const AMOUNT_KEY = "magic_amount";
       const MODE_KEY = "magic_buy_mode";
       const REFRESH_MS = 30000;
-      let buyMode = "build"; // build=估值补仓 · dca=总额配仓
+      let buyMode = "build"; // build=估值配仓 · dca=总额配仓
       let fetching = false;
       let valMap = {};
       let valDate = "";
@@ -2350,7 +2350,7 @@
       }
 
       /*
-       * 估值补仓 = 欠配金额 × CAPE/估值分位条件化部署（非经典 VA）
+       * 估值配仓 = 欠配金额 × CAPE/估值分位条件化部署（非经典 VA）
        * - 目标市值 = 投入总额 × 目标比例；待补/欠配 = max(0, 目标−市值)
        * - 建议金额 = 待补 × 部署系数（已扣持仓；剩余记延后）
        * - 分位条件化：≤38%→约满仓部署；≥88%→0；中间余弦衰减
@@ -2421,7 +2421,7 @@
         return { ...sig, deployScore, factor };
       }
 
-      /* 估值补仓建议：基数=待补(目标−市值)；建议=待补×估值系数 */
+      /* 估值配仓建议：基数=待补(目标−市值)；建议=待补×估值系数 */
       function suggestBuyNow(baseAmount, price, factor, totalAmount) {
         const need = Math.max(0, baseAmount || 0);
         const total = Math.max(0, totalAmount || 0);
@@ -2462,7 +2462,7 @@
         };
       }
 
-      /* 目标=总额×比例；总额配仓待补=目标−市值；估值补仓待补=(目标−市值)−延后 */
+      /* 目标=总额×比例；总额配仓待补=目标−市值；估值配仓待补=(目标−市值)−延后 */
       function lotsTag(lots, warn) {
         const n = lots > 0 ? lots : 0;
         const cls = warn ? "tag tag-warn" : "tag tag-ok";
@@ -2528,9 +2528,9 @@
           );
           if (hint)
             hint.textContent =
-              "估值补仓：目标=总额×比例 · 待补=(目标−市值)−延后 · 延后按系数";
+              "估值配仓：目标=总额×比例 · 待补=(目标−市值)−延后 · 延后按系数";
           if (foot)
-            foot.textContent = `估值补仓：目标=总额×比例(${ratioStr}) · 缺口=目标−市值 · 延后=缺口×(1−系数) · 待补=缺口−延后 · 暂停→0 · 减半→×0.5 · 仅供参考`;
+            foot.textContent = `估值配仓：目标=总额×比例(${ratioStr}) · 缺口=目标−市值 · 延后=缺口×(1−系数) · 待补=缺口−延后 · 暂停→0 · 减半→×0.5 · 仅供参考`;
           if (legend) legend.hidden = false;
         } else {
           if (hint)
@@ -3099,7 +3099,7 @@
           isLocalAppPage() && valSource === "mirror"
             ? " · 蛋卷实时：先运行 python3 proxy/valuation.py，再点刷新"
             : "";
-        const head = buyMode === "build" ? "估值补仓" : "估值结论";
+        const head = buyMode === "build" ? "估值配仓" : "估值结论";
         setValBanner(
           `📊 ${head}：${parts.join("，") || "—"}${dateStr}${macroStr}${usBondStr}${fxStr}${proxyHint}`,
           stopN >= 2 ||
