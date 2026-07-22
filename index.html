@@ -24,6 +24,7 @@
         --muted: #8b9cb3;
         --accent: #3b82f6;
         --accent-hover: #2563eb;
+        --info: #93c5fd;
         --success: #22c55e;
         --warning: #f59e0b;
         --danger: #ef4444;
@@ -102,18 +103,25 @@
       .amount-stepper {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 0;
+        box-sizing: border-box;
+        height: 32px;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 0;
+        overflow: hidden;
       }
 
       .amount-step {
-        width: 32px;
-        height: 32px;
+        width: 30px;
+        height: 100%;
         padding: 0;
-        background: var(--surface2);
-        border: 1px solid var(--border);
-        border-radius: 6px;
-        color: var(--text);
-        font-size: 1.1rem;
+        background: transparent;
+        border: none;
+        border-radius: 0;
+        color: var(--muted);
+        font-size: 1.05rem;
         font-weight: 700;
         line-height: 1;
         cursor: pointer;
@@ -121,24 +129,25 @@
         -webkit-tap-highlight-color: transparent;
       }
       .amount-step:hover {
-        background: var(--border);
+        background: rgba(59, 130, 246, 0.12);
+        color: var(--info);
       }
       .amount-step:active {
-        background: var(--accent);
-        border-color: var(--accent);
-        color: #fff;
+        background: rgba(59, 130, 246, 0.18);
+        color: var(--info);
       }
 
       .amount-field {
         display: flex;
         align-items: center;
-        background: var(--surface2);
-        border: 1px solid var(--border);
-        border-radius: 6px;
+        height: 100%;
+        background: transparent;
+        border: none;
+        border-radius: 0;
         padding: 0 8px;
       }
       .amount-field:focus-within {
-        border-color: var(--accent);
+        border-color: transparent;
       }
 
       .amount-prefix,
@@ -148,7 +157,8 @@
       }
       .amount-wrap input {
         width: 100px;
-        padding: 5px 4px;
+        padding: 0 4px;
+        height: 100%;
         background: transparent;
         border: none;
         color: var(--text);
@@ -159,16 +169,17 @@
       }
 
       .amount-live {
-        font-size: 0.88rem;
-        font-weight: 700;
-        color: #60a5fa;
+        font-size: 0.72rem;
+        font-weight: 500;
+        color: var(--muted);
         white-space: nowrap;
         font-variant-numeric: tabular-nums;
       }
       .amount-live.empty {
         color: var(--muted);
         font-weight: 500;
-        font-size: 0.75rem;
+        font-size: 0.7rem;
+        opacity: 0.85;
       }
 
       .btn {
@@ -220,7 +231,7 @@
         -webkit-tap-highlight-color: transparent;
       }
       .btn-refresh:hover {
-        color: #93c5fd;
+        color: var(--info);
         border-color: rgba(59, 130, 246, 0.35);
         background: rgba(59, 130, 246, 0.12);
       }
@@ -265,7 +276,7 @@
       }
       .mode-btn.active {
         background: rgba(59, 130, 246, 0.18);
-        color: #93c5fd;
+        color: var(--info);
       }
       .mode-btn:hover:not(.active) {
         color: var(--text);
@@ -312,28 +323,41 @@
         font-variant-numeric: tabular-nums;
       }
       .defer-amt {
-        color: rgba(245, 158, 11, 0.9);
+        color: var(--warning);
       }
-      .score-ok {
-        color: rgba(74, 222, 128, 0.95);
+      /* 分位严重度：与买入阶梯同色（success / info / warning / danger） */
+      .score-s5,
+      .score-s4 {
+        color: var(--success);
       }
-      .score-mid {
-        color: rgba(147, 197, 253, 0.95);
+      .score-s3 {
+        color: var(--info);
       }
-      .score-hi {
-        color: rgba(248, 113, 113, 0.95);
+      .score-s2 {
+        color: var(--warning);
       }
-      .ratio-badge.score-ok {
-        background: rgba(74, 222, 128, 0.15);
-        color: rgba(74, 222, 128, 0.95);
+      .score-s1 {
+        color: var(--danger);
       }
-      .ratio-badge.score-mid {
+      .ratio-badge.score-s5 {
+        background: rgba(34, 197, 94, 0.24);
+        color: var(--success);
+      }
+      .ratio-badge.score-s4 {
+        background: rgba(34, 197, 94, 0.15);
+        color: var(--success);
+      }
+      .ratio-badge.score-s3 {
         background: rgba(59, 130, 246, 0.15);
-        color: rgba(147, 197, 253, 0.95);
+        color: var(--info);
       }
-      .ratio-badge.score-hi {
-        background: rgba(248, 113, 113, 0.15);
-        color: rgba(248, 113, 113, 0.95);
+      .ratio-badge.score-s2 {
+        background: rgba(245, 158, 11, 0.15);
+        color: var(--warning);
+      }
+      .ratio-badge.score-s1 {
+        background: rgba(239, 68, 68, 0.18);
+        color: var(--danger);
       }
 
       .live-dot {
@@ -439,22 +463,22 @@
       .banner.ok {
         background: rgba(34, 197, 94, 0.12);
         border: 1px solid rgba(34, 197, 94, 0.3);
-        color: #86efac;
+        color: var(--success);
       }
       .banner.warn {
         background: rgba(245, 158, 11, 0.12);
         border: 1px solid rgba(245, 158, 11, 0.3);
-        color: #fcd34d;
+        color: var(--warning);
       }
       .banner.err {
         background: rgba(239, 68, 68, 0.12);
         border: 1px solid rgba(239, 68, 68, 0.3);
-        color: #fca5a5;
+        color: var(--danger);
       }
       .banner.info {
         background: rgba(59, 130, 246, 0.12);
         border: 1px solid rgba(59, 130, 246, 0.3);
-        color: #93c5fd;
+        color: var(--info);
       }
 
       .bottom-area {
@@ -744,7 +768,7 @@
       }
       .tag-s5 {
         background: rgba(34, 197, 94, 0.24);
-        color: #4ade80;
+        color: var(--success);
       }
       .tag-s4 {
         background: rgba(34, 197, 94, 0.15);
@@ -752,7 +776,7 @@
       }
       .tag-s3 {
         background: rgba(59, 130, 246, 0.15);
-        color: #93c5fd;
+        color: var(--info);
       }
       .tag-s2 {
         background: rgba(245, 158, 11, 0.15);
@@ -760,7 +784,7 @@
       }
       .tag-s1 {
         background: rgba(239, 68, 68, 0.18);
-        color: #f87171;
+        color: var(--danger);
       }
       .tag-na {
         background: rgba(139, 156, 179, 0.12);
@@ -833,7 +857,7 @@
         border-radius: 7px;
         padding: 8px 10px;
         font-size: 0.72rem;
-        color: #93c5fd;
+        color: var(--info);
         line-height: 1.45;
       }
 
@@ -861,34 +885,80 @@
           text-align: center;
         }
 
+        /* 金额区：单条控件，去掉套盒感 */
         .amount-wrap {
-          flex-wrap: wrap;
-          justify-content: center;
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 8px;
-          padding: 10px;
+          flex-direction: column;
+          flex-wrap: nowrap;
+          align-items: stretch;
+          gap: 6px;
+          background: transparent;
+          border: none;
+          border-radius: 0;
+          padding: 0;
         }
         .amount-stepper {
           width: 100%;
-          justify-content: center;
+          height: auto;
+          min-height: 46px;
+          justify-content: space-between;
+          gap: 0;
+          background: var(--surface);
+          border: 1px solid var(--border);
+          border-radius: 10px;
+          padding: 3px;
+          overflow: hidden;
         }
         .amount-step {
-          width: 44px;
-          height: 44px;
-          font-size: 1.35rem;
+          width: 42px;
+          height: 40px;
+          font-size: 1.25rem;
+          background: transparent;
+          border: none;
+          border-radius: 8px;
+          color: var(--muted);
+        }
+        .amount-step:active {
+          background: rgba(59, 130, 246, 0.18);
+          border-color: transparent;
+          color: var(--info);
+        }
+        .amount-field {
+          flex: 1;
+          height: auto;
+          justify-content: center;
+          min-width: 0;
+          background: transparent;
+          border: none;
+          border-radius: 0;
+          padding: 0 6px;
+        }
+        .amount-field:focus-within {
+          border-color: transparent;
+        }
+        .amount-prefix,
+        .amount-suffix {
+          font-size: 0.72rem;
         }
         .amount-wrap input {
-          width: 120px;
-          font-size: 1.1rem;
-          padding: 8px 4px;
+          width: 7.5em;
+          max-width: 42vw;
+          height: auto;
+          font-size: 1.05rem;
+          padding: 8px 2px;
+          text-align: center;
         }
         .amount-live {
           width: 100%;
           text-align: center;
-          font-size: 1rem;
+          font-size: 0.7rem;
+          font-weight: 500;
+          color: var(--muted);
           min-width: 0;
           white-space: normal;
+          letter-spacing: 0.01em;
+        }
+        .amount-live.empty {
+          font-size: 0.68rem;
         }
 
         .topbar-right {
@@ -1055,7 +1125,6 @@
     <div class="app">
       <div class="topbar">
         <div class="amount-wrap">
-          <label for="totalAmount">投入总额</label>
           <div class="amount-stepper">
             <button
               type="button"
@@ -3110,11 +3179,14 @@
         );
       }
 
+      /* 分位颜色：与 signalFromPercentile / 买入阶梯同阈值 */
       function scoreMetaCls(score) {
         if (score == null || !Number.isFinite(score)) return "";
-        if (score <= BUILD_CHEAP_PCT) return "score-ok";
-        if (score >= BUILD_RICH_PCT) return "score-hi";
-        return "score-mid";
+        if (score < 30) return "score-s5"; /* 积极买入 */
+        if (score < 50) return "score-s4"; /* 正常买入 */
+        if (score < 70) return "score-s3"; /* 可以买入 */
+        if (score < 85) return "score-s2"; /* 减半买入 */
+        return "score-s1"; /* 暂停买入 · ≥85 偏贵 */
       }
 
       async function loadValuation() {
