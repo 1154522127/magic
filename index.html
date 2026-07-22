@@ -1002,59 +1002,74 @@
           width: 72px;
         }
 
+        /* 三组概览：手机端各占一行四列，减少纵向滚动 */
         .summary-bar {
-          grid-template-columns: repeat(2, 1fr);
-          gap: 6px;
-        }
-        .summary-wrap > .summary-bar .stat:nth-child(1) {
-          order: 1;
-        }
-        .summary-wrap > .summary-bar .stat:nth-child(2) {
-          order: 3;
-        }
-        .summary-wrap > .summary-bar .stat:nth-child(3) {
-          order: 2;
-        }
-        .summary-wrap > .summary-bar .stat:nth-child(4) {
-          order: 4;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 4px;
         }
         .stat {
-          padding: 8px;
+          padding: 4px 2px;
+          min-width: 0;
+          overflow: hidden;
+        }
+        .stat .lbl {
+          font-size: 0.55rem;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
         }
         .stat .val {
-          font-size: 0.82rem;
+          font-size: 0.68rem;
+          letter-spacing: -0.02em;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          font-variant-numeric: tabular-nums;
         }
         .lot-title {
-          grid-column: 1 / -1;
-          margin-bottom: 0;
+          margin-bottom: 3px;
+          font-size: 0.6rem;
         }
         .lot-wrap {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 6px;
+          display: block;
         }
         .summary-bar.lot-bar {
-          display: contents;
+          display: grid;
+          grid-template-columns: repeat(4, minmax(0, 1fr));
+          gap: 4px;
+        }
+        .lot-bar .stat .val {
+          font-size: 0.66rem;
         }
         .lot-foot {
-          grid-column: 1 / -1;
-          margin-top: 0;
-          margin-right: 8px;
-          padding: 2px 4px 0 0;
+          margin-top: 2px;
+          margin-right: 2px;
+          padding: 0 2px 0 0;
+          gap: 4px;
         }
         .lot-foot-lbl {
-          font-size: 0.68rem;
+          font-size: 0.55rem;
+          letter-spacing: 0.02em;
         }
         .lot-foot-amt {
-          font-size: 0.85rem;
+          font-size: 0.66rem;
+          font-weight: 700;
           color: var(--warning);
         }
 
+        /* 固定两行高度，切换总额/估值配仓时底部不跟着抖 */
         .banner {
           white-space: normal;
-          line-height: 1.4;
-          max-height: none;
-          overflow: visible;
+          line-height: 1.35;
+          height: calc(1em * 1.35 * 2 + 10px + 2px);
+          padding: 5px 10px;
+          box-sizing: border-box;
+          display: -webkit-box;
+          -webkit-box-orient: vertical;
+          -webkit-line-clamp: 2;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          word-break: break-word;
         }
 
         .mobile-hint {
@@ -1095,13 +1110,22 @@
           font-size: 0.64rem;
           line-height: 1.4;
         }
-        .cell-stack.col-tgt .sub .gap-pair,
-        .cell-stack.col-pct .sub .gap-pair {
+        .cell-stack.col-tgt .sub .gap-pair {
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 2px;
           white-space: normal;
+        }
+        /* 分位/延后保持单行，避免与总额配仓切换时行高抖动 */
+        .cell-stack.col-pct .sub .gap-pair {
+          display: inline-flex;
+          flex-direction: row;
+          flex-wrap: nowrap;
+          align-items: baseline;
+          justify-content: center;
+          gap: 3px;
+          white-space: nowrap;
         }
         .cell-stack.col-tgt .sub .tag,
         .cell-stack.col-pct .sub .tag {
