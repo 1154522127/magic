@@ -786,6 +786,14 @@
         background: rgba(239, 68, 68, 0.18);
         color: var(--danger);
       }
+      .tag-trim {
+        background: rgba(239, 68, 68, 0.28);
+        color: var(--danger);
+      }
+      .tag-over {
+        background: rgba(245, 158, 11, 0.2);
+        color: var(--warning);
+      }
       .tag-na {
         background: rgba(139, 156, 179, 0.12);
         color: var(--muted);
@@ -1108,12 +1116,44 @@
           -webkit-overflow-scrolling: touch;
         }
         .signal-legend {
-          gap: 5px 6px;
-          padding: 8px;
+          flex-wrap: nowrap;
+          justify-content: center;
+          align-items: baseline;
+          gap: 0;
+          padding: 7px 10px;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+        }
+        .signal-legend::-webkit-scrollbar {
+          display: none;
+        }
+        .signal-legend .legend-title {
+          flex-shrink: 0;
+          margin-right: 0;
+          font-size: 0.58rem;
+          font-weight: 700;
+        }
+        .signal-legend .legend-title::after {
+          content: "：";
         }
         .signal-legend .legend-hint {
-          width: 100%;
-          text-align: center;
+          display: none;
+        }
+        /* 手机端图例：去胶囊底，单行文字 + 间隔点 */
+        .signal-legend .tag {
+          background: transparent !important;
+          padding: 0;
+          border-radius: 0;
+          font-size: 0.58rem;
+          font-weight: 600;
+          line-height: 1.2;
+        }
+        .signal-legend .tag + .tag::before {
+          content: " · ";
+          color: var(--muted);
+          font-weight: 400;
+          opacity: 0.55;
         }
         .price-val {
           font-size: 0.82rem;
@@ -1214,7 +1254,7 @@
                 </th>
                 <th class="col-val">估值指标</th>
                 <th class="col-pnl">盈亏</th>
-                <th class="col-adv">买入建议</th>
+                <th class="col-adv">操作建议</th>
                 <th class="col-tail col-hold">持仓</th>
                 <th class="col-tail col-cost">成本</th>
                 <th class="col-tail col-price">现价</th>
@@ -1236,25 +1276,14 @@
           </table>
         </div>
         <div class="signal-legend" id="signalLegend">
-          <span class="legend-title">买入阶梯</span>
+          <span class="legend-title">操作建议</span>
           <span class="tag tag-s5">积极买入</span>
           <span class="tag tag-s4">正常买入</span>
           <span class="tag tag-s3">可以买入</span>
-          <span class="tag tag-s2">减半买入</span>
+          <span class="tag tag-s2">谨慎买入</span>
           <span class="tag tag-s1">暂停买入</span>
-          <span class="legend-hint" id="legendHint"
-            >总额配仓：目标=总额×比例 · 待补=目标−成本</span
-          >
-        </div>
-        <div class="table-foot" id="tableFoot">
-          占比=市值/投入总额 · 目标值=投入总额×比例 · 待补=目标值−成本 ·
-          PE/PB=历史分位 · 溢价=现价高于IOPV ·
-          ERP=盈利收益率−国债(美股US10Y/A股CN10Y) · 仅供参考
-        </div>
-        <div class="table-foot" id="factorRule" hidden>
-          分位系数：≤38 偏便宜→约100% · 38–88 中间→余弦递减 · ≥88 偏贵→0%延后 ·
-          打满=系数约100% · 暂停→0 · 减半→×0.5 ·
-          建议=待补(目标−成本)×系数（手数取整；买不满一手→再买一手差多少）
+          <span class="tag tag-trim">建议减仓</span>
+          <span class="tag tag-over">超配观望</span>
         </div>
       </div>
 
@@ -1283,6 +1312,10 @@
             </div>
           </div>
         </div>
+        <div class="lot-wrap" id="oneLotWrap">
+          <div class="lot-title">当前一手市值</div>
+          <div class="summary-bar lot-bar" id="sOneLotBar">—</div>
+        </div>
         <div class="lot-wrap">
           <div class="lot-title">最低仓位配比</div>
           <div class="summary-bar lot-bar" id="sLotBar">—</div>
@@ -1303,7 +1336,7 @@
         quote: { label: "溢价/涨跌", minWidth: { desktop: 68, mobile: 58 } },
         val: { label: "估值指标", minWidth: { desktop: 148, mobile: 158 } },
         pnl: { label: "盈亏", minWidth: { desktop: 68, mobile: 68 } },
-        adv: { label: "买入建议", minWidth: { desktop: 78, mobile: 68 } },
+        adv: { label: "操作建议", minWidth: { desktop: 78, mobile: 68 } },
         hold: { label: "持仓", minWidth: { desktop: 68, mobile: 72 } },
         cost: { label: "成本", minWidth: { desktop: 68, mobile: 72 } },
         price: { label: "现价", minWidth: { desktop: 58, mobile: 58 } },
@@ -1370,7 +1403,7 @@
         },
         {
           code: "515450",
-          name: "红利50",
+          name: "红利低波",
           ratio: 0.4,
           secid: "1.515450",
           indexCode: "CSIH30269",
@@ -1406,11 +1439,112 @@
       const MACRO_CACHE_MAX_AGE = 7 * 86400000;
       const US_BOND_YIELD_DEFAULT = 4.3;
       const CN_BOND_YIELD_DEFAULT = 1.8;
-      /* 国内 10Y：偏高→债便宜可积极；偏低→债贵减半（近年中枢约 1.6–3%） */
-      const CN_BOND_ATTRACTIVE_Y = 3.2;
-      const CN_BOND_RICH_Y = 2.2;
-      const FX_REF_LOW = 6.3;
-      const FX_REF_HIGH = 7.25;
+      /* 国内 10Y：按近年中枢重标定；偏高→债可积极；偏低→债谨慎（与 VAL.bondAttractiveY / bondRichY 同步） */
+      const CN_BOND_ATTRACTIVE_Y = 2.4;
+      const CN_BOND_RICH_Y = 1.65;
+      const FX_REF_LOW = 6.5;
+      const FX_REF_HIGH = 7.4;
+
+      /* 估值阈值集中配置（买入阶梯 / 部署系数 / 品种覆盖规则） */
+      /* 激进分目标（1保守–100激进）：纳指~40 · 标普~42 · 红利~47 · 国债~53
+       * 纳指：warnCap 0.92→0.55、rich 99→92；标普 spPeWarnGate 70→75 避免过勤谨慎 */
+      const VAL = {
+        cheap: 30,
+        normal: 50,
+        mild: 70,
+        rich: 85,
+        zoneHigh: 70,
+        zoneLow: 30,
+        warnCap: 0.5,
+        /* 标签升级最多下拉部署分位，避免综合~60 被压成 40 后几乎满仓 */
+        upgradePullMax: 10,
+        /* 品种部署曲线：激进分校准用 */
+        deploy: {
+          ndx: {
+            cheap: 34,
+            rich: 92,
+            warnCap: 0.55,
+            warnScoreCap: 55,
+            pullMax: 14,
+          },
+          sp500: {
+            cheap: 22,
+            rich: 99,
+            /* 谨慎最多约四成目标；75 分位待补从「近半仓」降到「少买」 */
+            warnCap: 0.38,
+            warnScoreCap: 55,
+            pullMax: 10,
+          },
+          dividend: {
+            /* 去掉 scoreBias：中位「可以买入」不再被当成更贵；
+             * peakCap 压住历史便宜期满仓，激进分仍≈47 */
+            cheap: 22,
+            rich: 96,
+            warnCap: 0.65,
+            peakCap: 0.78,
+            pullMax: 8,
+          },
+          bond: {
+            cheap: 18,
+            rich: 82,
+            warnCap: 0.7,
+            warnInvCap: 38,
+            fullWhenOk: true,
+          },
+        },
+        /* 标签分位带 [积极≤, 正常<, 可以<, 谨慎< / 暂停≥] */
+        bands: {
+          ndx: [28, 55, 78, 90],
+          sp500: [30, 58, 72, 96],
+          dividend: [22, 44, 66, 86],
+        },
+        /* 国债：股综/偏高仓位 → 债优；低估仓位 → 减债 */
+        bondAvgHigh: 62,
+        bondAvgLow: 28,
+        bondAvgPause: 10,
+        bondHighWeight: 0.45,
+        bondLowWeight: 0.55,
+        bondHighFrac: 0.5,
+        bondLowFrac: 0.75,
+        bondYieldWarn: 1.4,
+        /* 与 CN_BOND_ATTRACTIVE_Y / CN_BOND_RICH_Y 对齐，避免门槛漂移 */
+        bondAttractiveY: CN_BOND_ATTRACTIVE_Y,
+        bondRichY: CN_BOND_RICH_Y,
+        /* 纳指 */
+        ndxPbWarn: 97,
+        ndxPbStop: 99.9,
+        ndxPegHi: 4.0,
+        ndxPegMid: 2.8,
+        ndxErpStop: -99 /* 不再 ERP 硬停，只降级 */,
+        ndxErpWarn: -6.0,
+        ndxErpSoft: -3.0,
+        ndxDualStop: 99.5,
+        /* 标普启发预期 */
+        spBogleStop: 1,
+        spBogleWarnLo: 4.5,
+        spBogleWarnHi: 4.5,
+        spBogleBuy: 7,
+        spBogleUp: 6,
+        spErpWarn: -3.0,
+        spErpSoft: -3.0,
+        spDualStop: 98,
+        spPePauseGate: 95,
+        /* 启发预期偏低：PE分位>75 降谨慎（覆盖股息加成后的中高分位；70 过勤→约38，75→约42） */
+        spPeWarnGate: 75,
+        /* 红利 */
+        divPeCheap: 8,
+        divYldFloor: 4.8,
+        divYldStrong: 5.5,
+        divYldHot: 6.5,
+        divPremBond: 4.0,
+        divErpBoost: 6.0,
+        divUpgradePb: 45,
+        divUpgradeScore: 50,
+        /* A股预留 */
+        aErpBuy: 3,
+        aErpOk: 2,
+        aErpWarn: 0,
+      };
       let macroCtx = {
         bondYieldPct: null,
         usBondYieldPct: null,
@@ -1933,9 +2067,10 @@
           pe_percentile: mix("pe_percentile"),
           pb_percentile: mix("pb_percentile"),
           roe: mix("roe"),
-          yeild: mix("yeild"),
+          yeild: mix("yeild") ?? mix("yield"),
           peg: mix("peg"),
-          bond_yeild: a.bond_yeild ?? b.bond_yeild,
+          bond_yeild:
+            a.bond_yeild ?? a.bond_yield ?? b.bond_yeild ?? b.bond_yield,
           pe_over_history: mix("pe_over_history"),
           pb_over_history: mix("pb_over_history"),
         };
@@ -2318,9 +2453,13 @@
           const below = rates.filter((r) => r <= rate).length;
           return (below / rates.length) * 100;
         }
-        if (rate <= FX_REF_LOW) return 0;
-        if (rate >= FX_REF_HIGH) return 100;
-        return ((rate - FX_REF_LOW) / (FX_REF_HIGH - FX_REF_LOW)) * 100;
+        /* 冷启动：线性映射向中性 50% 衰减，避免样本不足时长期判「偏强」 */
+        let linear;
+        if (rate <= FX_REF_LOW) linear = 0;
+        else if (rate >= FX_REF_HIGH) linear = 100;
+        else linear = ((rate - FX_REF_LOW) / (FX_REF_HIGH - FX_REF_LOW)) * 100;
+        const damp = Math.min(1, hist.length / 15);
+        return linear * damp + 50 * (1 - damp);
       }
 
       function syncUsdcny(rate) {
@@ -2376,12 +2515,49 @@
       }
 
       /* ── 估值模型（各品种独立） ── */
+      function hasValPct(v, key) {
+        const x = v?.[key];
+        return x != null && x !== "" && Number.isFinite(Number(x));
+      }
+
       function valPct(v, key) {
-        return (v[key] || 0) * 100;
+        return hasValPct(v, key) ? Number(v[key]) * 100 : 0;
+      }
+
+      function readValPct(v, key) {
+        return hasValPct(v, key) ? Number(v[key]) * 100 : null;
+      }
+
+      /* 上游字段多为 yeild；兼容 yield */
+      function readYieldPct(v) {
+        const y = readValPct(v, "yeild");
+        if (y != null) return y;
+        return readValPct(v, "yield");
+      }
+
+      function readBondYeildFrac(v) {
+        const a = v?.bond_yeild ?? v?.bond_yield;
+        return a != null && Number.isFinite(Number(a)) ? Number(a) : null;
+      }
+
+      function naValResult(detail) {
+        return {
+          action: "暂无数据",
+          level: "na",
+          tagCls: "tag-na",
+          metrics: "—",
+          detail: detail || "分位缺失",
+          score: null,
+          zone: "—",
+        };
       }
 
       function zoneFromPct(pct) {
-        return pct < 30 ? "低估区" : pct < 70 ? "合理区" : "偏高区";
+        return pct <= VAL.zoneLow
+          ? "低估区"
+          : pct < VAL.zoneHigh
+            ? "合理区"
+            : "偏高区";
       }
 
       function earningsYield(v) {
@@ -2390,27 +2566,45 @@
       }
 
       function equityRiskPremium(v, bondYieldPct) {
-        const bondY =
-          bondYieldPct != null ? bondYieldPct : (v.bond_yeild || 0.04) * 100;
+        let bondY = bondYieldPct;
+        if (bondY == null) {
+          const frac = readBondYeildFrac(v);
+          bondY = frac != null ? frac * 100 : US_BOND_YIELD_DEFAULT;
+        }
         return earningsYield(v) - bondY;
       }
 
-      function bogleReturn(v) {
-        /* 启发式预期：股息 + 部分ROE/盈利收益率 − 高分位惩罚（非经典 Bogle） */
-        const div = valPct(v, "yeild");
-        const roe = valPct(v, "roe");
-        const peP = valPct(v, "pe_percentile");
+      /*
+       * 启发预期（非经典 Bogle）≈ 盈利收益率 + 增长代理 − 分位拖累
+       * - 主锚：EY（绝对估值），避免仅靠 ROE×常数虚高
+       * - 增长：有 ROE 用 min(ROE×0.10, 2)；否则用股息的一小部分（偏保守，避免高ROE抬预期）
+       * - 分位拖累 0.08/点：中高分位更快压低预期
+       * - 缺 PE / PE分位 → null（不默认 50，避免无数据当中性）
+       */
+      function heuristicReturn(v) {
+        const peP = readValPct(v, "pe_percentile");
+        if (peP == null || !(v.pe > 0)) return null;
         const ey = earningsYield(v);
-        return div + roe * 0.25 + ey * 0.15 - (peP - 50) * 0.06;
+        const div = readYieldPct(v) ?? 0;
+        const roe = readValPct(v, "roe");
+        const growth =
+          roe != null ? Math.min(roe * 0.1, 2) : Math.min(div * 0.25, 1.2);
+        return ey + growth - (peP - 50) * 0.08;
       }
 
       const SIGNAL_MAP = {
-        积极买入: { tagCls: "tag-s5", rank: 5 },
-        正常买入: { tagCls: "tag-s4", rank: 4 },
-        可以买入: { tagCls: "tag-s3", rank: 3 },
-        减半买入: { tagCls: "tag-s2", rank: 2 },
-        暂停买入: { tagCls: "tag-s1", rank: 1 },
+        积极买入: { tagCls: "tag-s5", rank: 5, level: "buy" },
+        正常买入: { tagCls: "tag-s4", rank: 4, level: "ok" },
+        可以买入: { tagCls: "tag-s3", rank: 3, level: "ok" },
+        谨慎买入: { tagCls: "tag-s2", rank: 2, level: "warn" },
+        暂停买入: { tagCls: "tag-s1", rank: 1, level: "stop" },
       };
+
+      function signalOf(action) {
+        const s = SIGNAL_MAP[action];
+        if (!s) return { action, level: "na", tagCls: "tag-na", rank: -1 };
+        return { action, level: s.level, tagCls: s.tagCls, rank: s.rank };
+      }
 
       function renderSignalTag(action) {
         const s = SIGNAL_MAP[action];
@@ -2418,16 +2612,70 @@
         return `<span class="tag ${s.tagCls}">${action}</span>`;
       }
 
+      /* 超配 + 估值偏贵 → 建议减仓；超配但估值尚可 → 超配观望（不追买）
+       * 国债：股贵时债多可接受；仅股便宜（减债）时建议减仓 */
+      function suggestTrimAction(row, sig) {
+        if (!row || !(row.gap < -1) || !sig || sig.level === "na") return null;
+        const overAmt = Math.abs(row.gap);
+        if (row.method === "bond") {
+          if (sig.level === "stop" || sig.level === "warn") {
+            return {
+              action: "建议减仓",
+              tagCls: "tag-trim",
+              level: "trim",
+              amount: overAmt,
+            };
+          }
+          return {
+            action: "超配观望",
+            tagCls: "tag-over",
+            level: "over",
+            amount: overAmt,
+          };
+        }
+        const rich =
+          sig.level === "stop" ||
+          sig.level === "warn" ||
+          sig.zone === "偏高区" ||
+          (sig.score != null &&
+            Number.isFinite(sig.score) &&
+            sig.score >= VAL.mild);
+        if (rich) {
+          return {
+            action: "建议减仓",
+            tagCls: "tag-trim",
+            level: "trim",
+            amount: overAmt,
+          };
+        }
+        return {
+          action: "超配观望",
+          tagCls: "tag-over",
+          level: "over",
+          amount: overAmt,
+        };
+      }
+
+      function renderAdviceCell(sig, row) {
+        const trim = suggestTrimAction(row, sig);
+        if (trim) {
+          return `<div class="adv-cell"><span class="tag ${trim.tagCls}">${trim.action}</span><span class="adv-sub">${fmtDisplay(trim.amount)}</span></div>`;
+        }
+        return renderSignalTag(sig?.action || "—");
+      }
+
       /*
-       * 估值配仓 = 欠配金额 × CAPE/估值分位条件化部署（非经典 VA）
-       * - 目标 = 投入总额 × 目标比例；待补/欠配 = max(0, 目标−成本)
-       * - 建议金额 = 待补 × 部署系数（已扣持仓成本；剩余记延后）
-       * - 分位条件化：≤38%→约满仓部署；≥88%→0；中间余弦衰减
-       * - 「暂停」或硬停 → 系数 0；「减半」→ 系数再 ×0.5
-       * - 国债：股贵则债便宜，对权益综合分位取反后再算系数
+       * 估值配仓 = 按总仓目标比例，再用估值系数决定「现在允许多少成本」
+       * - 战略目标 = 投入总额 × 比例（12/28/40/20）
+       * - 可买上限 = 战略目标 × 部署系数
+       * - 待补 = max(0, 可买上限 − 成本)；估值延后 = max(0, 战略目标 − 成本) − 待补
+       * - 各品种独立部署曲线（VAL.deploy）：纳指/标普偏松，红利用 peakCap 控均值，国债非谨慎满配
+       * - 暂停/硬停→0；谨慎按品种 warnCap 封顶；红利 peakCap 限制便宜时上限
+       * - 分位字段缺失 → 暂无数据（禁止当 0% 便宜）
+       * - 缺口/已投入按成本或市值（可切换）；建议合计不超过剩余额度
        */
-      const BUILD_CHEAP_PCT = 38;
-      const BUILD_RICH_PCT = 88;
+      const BUILD_CHEAP_PCT = VAL.cheap;
+      const BUILD_RICH_PCT = VAL.rich;
 
       function actionToProxyScore(action) {
         switch (action) {
@@ -2437,7 +2685,8 @@
             return 40;
           case "可以买入":
             return 60;
-          case "减半买入":
+          case "谨慎买入":
+          case "减半买入" /* 历史标签兼容 */:
             return 75;
           case "暂停买入":
             return 92;
@@ -2446,77 +2695,161 @@
         }
       }
 
-      /* 部署用分位：权益越低越便宜；国债对权益分位取反 */
+      /* 部署用分位：权益越低越便宜；国债对权益分位取反
+       * 标签升级：向代理分位靠拢，但最多下拉 pullMax / upgradePullMax */
       function buildDeployScore(sig, method) {
         if (!sig || sig.level === "na" || sig.action === "暂无数据")
           return null;
+        const cfg = VAL.deploy[method] || {};
         let raw =
           sig.score != null && Number.isFinite(sig.score)
             ? sig.score
             : actionToProxyScore(sig.action);
         raw = Math.max(0, Math.min(100, raw));
-        if (method === "bond") return 100 - raw;
+        if (method !== "bond" && sig.action && SIGNAL_MAP[sig.action]) {
+          const proxy = actionToProxyScore(sig.action);
+          const pull = cfg.pullMax != null ? cfg.pullMax : VAL.upgradePullMax;
+          if (proxy < raw) {
+            raw = Math.max(proxy, raw - pull);
+          }
+        }
+        if (method === "dividend" && cfg.scoreBias)
+          raw = Math.min(100, raw + cfg.scoreBias);
+        /* 美股谨慎：封顶部署分位，避免 85%+ 时系数≈0 */
+        if (
+          (method === "ndx" || method === "sp500") &&
+          sig.level === "warn" &&
+          cfg.warnScoreCap != null
+        )
+          raw = Math.min(raw, cfg.warnScoreCap);
+        if (method === "bond") {
+          let inv = 100 - raw;
+          if (sig.level === "warn" && cfg.warnInvCap != null)
+            inv = Math.min(inv, cfg.warnInvCap);
+          return inv;
+        }
         return raw;
       }
 
-      /* CAPE-conditional：余弦平滑，避免档位悬崖 */
+      /* 展示用分位：
+       * - 降级为谨慎但部署分位仍低：按标签代理着色，避免显示「很便宜」
+       * - 升级（正常/积极）时仍展示真实综合分位，避免被代理分位压低造成「越涨越便宜」错觉
+       * - 部署系数仍用 deployScore（可被标签压低以对齐买入力度） */
+      function buildDisplayScore(sig, method, deployScore) {
+        if (method === "bond" && sig?.yieldDriven)
+          return actionToProxyScore(sig.action);
+        if (
+          sig?.level === "warn" &&
+          deployScore != null &&
+          deployScore < VAL.mild
+        )
+          return actionToProxyScore(sig.action);
+        if (
+          method !== "bond" &&
+          sig?.score != null &&
+          Number.isFinite(sig.score)
+        )
+          return Math.max(0, Math.min(100, sig.score));
+        return deployScore;
+      }
+
+      /* CAPE-conditional：余弦平滑；各品种独立 cheap/rich/warnCap */
       function buildDeployFactor(sig, method) {
         if (!sig || sig.level === "na" || sig.action === "暂无数据") return 0;
         /* 暂停 / 溢价硬停：一律不建议买 */
         if (sig.hardStop || sig.level === "stop") return 0;
 
+        const cfg = VAL.deploy[method] || {};
+        /* 国债非谨慎：压舱满配 */
+        if (
+          method === "bond" &&
+          cfg.fullWhenOk &&
+          (sig.level === "ok" || sig.level === "buy")
+        )
+          return 1;
+
         const score = buildDeployScore(sig, method);
         if (score == null) return 0;
+        const cheap = cfg.cheap != null ? cfg.cheap : BUILD_CHEAP_PCT;
+        const rich = cfg.rich != null ? cfg.rich : BUILD_RICH_PCT;
+        const wcap = cfg.warnCap != null ? cfg.warnCap : VAL.warnCap;
         let factor;
-        if (score <= BUILD_CHEAP_PCT) factor = 1;
-        else if (score >= BUILD_RICH_PCT) factor = 0;
+        if (score <= cheap) factor = 1;
+        else if (score >= rich) factor = 0;
         else {
-          const t =
-            (score - BUILD_CHEAP_PCT) / (BUILD_RICH_PCT - BUILD_CHEAP_PCT);
+          const t = (score - cheap) / (rich - cheap);
           factor = 0.5 * (1 + Math.cos(Math.PI * t));
         }
-        /* 减半买入：再乘 0.5（与标签一致；可与分位衰减叠乘） */
-        if (sig.level === "warn") factor *= 0.5;
+        /* 红利：便宜期不全仓，避免长期均值偏激进；中高分位不受 scoreBias 误伤 */
+        if (cfg.peakCap != null) factor = Math.min(factor, cfg.peakCap);
+        if (sig.level === "warn") factor = Math.min(factor, wcap);
         return factor;
       }
 
       function toBuildSignal(sig, method) {
         if (!sig) return sig;
         if (sig.action === "暂无数据" || sig.level === "na") {
-          return { ...sig, deployScore: null, factor: 0 };
+          return { ...sig, deployScore: null, displayScore: null, factor: 0 };
         }
         const deployScore = buildDeployScore(sig, method);
+        const displayScore = buildDisplayScore(sig, method, deployScore);
         const factor = buildDeployFactor(sig, method);
-        return { ...sig, deployScore, factor };
+        return { ...sig, deployScore, displayScore, factor };
       }
 
-      /* 估值配仓建议：基数=待补(目标−成本)；建议=待补×估值系数 */
-      function suggestBuyNow(baseAmount, price, factor, totalAmount) {
-        const need = Math.max(0, baseAmount || 0);
+      /* 估值配仓：可买上限=目标×系数；待补=上限−成本；估值延后=缺口−待补；deferred含手数零头 */
+      function suggestBuyNow(
+        targetValue,
+        heldBase,
+        price,
+        factor,
+        totalAmount,
+      ) {
+        const target = Math.max(0, targetValue || 0);
+        const held = Math.max(0, heldBase || 0);
+        const gap = Math.max(0, target - held);
         const total = Math.max(0, totalAmount || 0);
-        if (!(price > 0) || factor <= 0 || need < 1) {
+        const f = Math.max(0, Math.min(1, Number(factor) || 0));
+        if (!(price > 0) || f <= 0 || gap < 1) {
           return {
             yuan: 0,
             lots: 0,
             budget: 0,
-            deferred: need,
-            valDefer: need,
+            deferred: gap,
+            valDefer: gap,
             lotRemain: 0,
             lotShort: 0,
-            factor,
+            sharesCanBuy: 0,
+            sharesInPartial: 0,
+            sharesToLot: 0,
+            factor: f,
             pctOfTotal: 0,
-            deferPct: total > 0 ? (need / total) * 100 : 0,
+            deferPct: total > 0 ? (gap / total) * 100 : 0,
           };
         }
-        const budget = need * factor;
+        const deployCap = target * f;
+        const budget = Math.max(0, deployCap - held);
+        const valDefer = Math.max(0, gap - budget);
         const lotYuan = price * LOT;
-        const lots = Math.floor(budget / lotYuan);
+        const lots =
+          budget >= 1 && lotYuan > 0 ? Math.floor(budget / lotYuan) : 0;
         const yuan = lots * lotYuan;
-        const valDefer = Math.max(0, need - budget);
         const lotRemain = Math.max(0, budget - yuan);
-        /* 再买一手还差多少（有零头时） */
+        /* 再买一手还差多少（金额）；零头可买股数；满一手还差几股 */
         const lotShort = lotRemain >= 1 ? Math.max(0, lotYuan - lotRemain) : 0;
-        const deferred = Math.max(0, need - yuan);
+        const sharesCanBuy =
+          price > 0 && budget >= price ? Math.floor(budget / price) : 0;
+        const sharesInPartial =
+          price > 0 && lotRemain >= price ? Math.floor(lotRemain / price) : 0;
+        const sharesToLot =
+          lots === 0 && sharesCanBuy > 0 && sharesCanBuy < LOT
+            ? LOT - sharesCanBuy
+            : sharesInPartial > 0 && sharesInPartial < LOT
+              ? LOT - sharesInPartial
+              : lotShort >= 1 && price > 0
+                ? Math.max(1, Math.ceil(lotShort / price))
+                : 0;
+        const deferred = Math.max(0, gap - yuan);
         return {
           yuan,
           lots,
@@ -2525,21 +2858,46 @@
           valDefer,
           lotRemain,
           lotShort,
-          factor,
+          sharesCanBuy,
+          sharesInPartial,
+          sharesToLot,
+          factor: f,
           pctOfTotal: total > 0 ? (yuan / total) * 100 : 0,
           deferPct: total > 0 ? (deferred / total) * 100 : 0,
         };
       }
 
-      /* 目标=总额×比例；总额配仓待补=目标−成本；估值配仓待补=(目标−成本)−延后 */
+      /* 目标=总额×比例；总额配仓待补=目标−成本；估值配仓待补=目标×系数−成本 */
       function lotsTag(lots, warn) {
         const n = lots > 0 ? lots : 0;
         const cls = warn ? "tag tag-warn" : "tag tag-ok";
         return `<span class="${cls}">${n}手</span>`;
       }
 
+      function sharesTag(shares, warn) {
+        const n = shares > 0 ? shares : 0;
+        const cls = warn ? "tag tag-warn" : "tag tag-ok";
+        return `<span class="${cls}">${n}股</span>`;
+      }
+
       function gapPairHtml(amountHtml, lotsHtml) {
         return `<span class="gap-pair">${amountHtml}${lotsHtml}</span>`;
+      }
+
+      /* 不足1手时：补配=满一手还差的金额，股数=还差几股 */
+      function partialLotNeedHtml(price, budget, money) {
+        if (!(price > 0) || !(budget >= price)) return null;
+        const shares = Math.floor(budget / price);
+        if (shares < 1 || shares >= LOT) return null;
+        const lotYuan = price * LOT;
+        const haveYuan = shares * price;
+        const shortYuan = Math.max(0, lotYuan - haveYuan);
+        const shortShares = LOT - shares;
+        if (!(shortYuan >= 0.01) || shortShares < 1) return null;
+        return gapPairHtml(
+          `<span class="gap-val need">${money(shortYuan)}</span>`,
+          sharesTag(shortShares, false),
+        );
       }
 
       function renderTgtNeedCell(r, money) {
@@ -2554,61 +2912,78 @@
         if (r.gap < -1) {
           needHtml = `<span class="gap-val over">超配 ${money(Math.abs(r.gap))}</span>`;
         } else if (buyMode === "build") {
+          const factor = r.buildSig?.factor ?? 0;
           const valDefer = r.suggest?.valDefer || 0;
-          const nowFill = Math.max(0, (r.needFill || 0) - valDefer);
+          const budget =
+            r.suggest != null
+              ? r.suggest.budget || 0
+              : Math.max(0, (r.needFill || 0) - valDefer);
+          const nowFill =
+            r.suggest != null
+              ? r.suggest.yuan || 0
+              : Math.max(0, (r.needFill || 0) - valDefer);
           const nowLots =
-            r.minLot > 0 && nowFill > 0 ? Math.floor(nowFill / r.minLot) : 0;
-          if (nowFill >= 1 || (r.needFill || 0) >= 1) {
+            r.suggest?.lots != null
+              ? r.suggest.lots
+              : r.minLot > 0 && nowFill > 0
+                ? Math.floor(nowFill / r.minLot)
+                : 0;
+          const partialHtml = partialLotNeedHtml(r.price, budget, money);
+          /* 系数=0：战略仍欠配，但全部延后 */
+          if (factor <= 0 && (r.needFill || 0) >= 1) {
+            needHtml = `<span class="gap-val ok">分位系数过高</span>`;
+          } else if (nowLots >= 1 && nowFill >= 1) {
             needHtml = gapPairHtml(
               `<span class="gap-val need">${money(nowFill)}</span>`,
               lotsTag(nowLots, false),
             );
+          } else if (partialHtml) {
+            needHtml = partialHtml;
           } else {
-            needHtml = `<span class="gap-val ok">—</span>`;
+            needHtml = gapPairHtml(
+              `<span class="gap-val ok">${money(0)}</span>`,
+              lotsTag(0, false),
+            );
           }
         } else if (r.needFill >= 1) {
-          needHtml = gapPairHtml(
-            `<span class="gap-val need">${money(r.needFill)}</span>`,
-            lotsTag(r.needLots, false),
-          );
+          const partialHtml = partialLotNeedHtml(r.price, r.needFill, money);
+          if (r.needLots >= 1) {
+            needHtml = gapPairHtml(
+              `<span class="gap-val need">${money(r.needFill)}</span>`,
+              lotsTag(r.needLots, false),
+            );
+          } else if (partialHtml) {
+            needHtml = partialHtml;
+          } else {
+            needHtml = gapPairHtml(
+              `<span class="gap-val need">${money(r.needFill)}</span>`,
+              lotsTag(0, false),
+            );
+          }
         } else {
-          needHtml = `<span class="gap-val ok">—</span>`;
+          needHtml = gapPairHtml(
+            `<span class="gap-val ok">${money(0)}</span>`,
+            lotsTag(0, false),
+          );
         }
         el.innerHTML = `<span class="money">${money(r.targetValue)}</span><br><span class="sub">${needHtml}</span>`;
       }
 
       function syncModeUI() {
-        document.querySelectorAll(".mode-btn").forEach((btn) => {
+        document.querySelectorAll("#modeToggle .mode-btn").forEach((btn) => {
           btn.classList.toggle("active", btn.dataset.mode === buyMode);
         });
-        const hint = document.getElementById("legendHint");
-        const foot = document.getElementById("tableFoot");
         const legend = document.getElementById("signalLegend");
-        const factorRule = document.getElementById("factorRule");
         const pctTh = document.querySelector("th.col-pct");
         const pctLabel = buyMode === "build" ? "分位/延后" : "占比/比例";
         if (pctTh) {
           pctTh.innerHTML = `<span class="hd-full">${pctLabel}</span><span class="hd-short">${pctLabel}</span>`;
         }
-        if (factorRule) factorRule.hidden = buyMode !== "build";
-        if (buyMode === "build") {
-          const ratioStr = PORTFOLIO.map((p) => Math.round(p.ratio * 100)).join(
-            "/",
-          );
-          if (hint)
-            hint.textContent =
-              "估值配仓：目标=总额×比例 · 待补=(目标−成本)−延后 · 延后按系数";
-          if (foot)
-            foot.textContent = `估值配仓：目标=总额×比例(${ratioStr}) · 缺口=目标−成本 · 延后=缺口×(1−系数) · 待补=缺口−延后 · 暂停→0 · 减半→×0.5 · 仅供参考`;
-          if (legend) legend.hidden = false;
-        } else {
-          if (hint)
-            hint.textContent = "总额配仓：目标=总额×比例 · 待补=目标−成本";
-          if (foot)
-            foot.textContent =
-              "总额配仓：占比=市值/投入总额 · 目标值=投入总额×比例 · 待补=目标值−成本 · PE/PB=历史分位 · 溢价=现价高于IOPV · ERP=盈利收益率−国债 · 仅供参考";
-          if (legend) legend.hidden = false;
-        }
+        if (legend) legend.hidden = false;
+      }
+
+      function heldForGap(h) {
+        return h.cost > 0 ? h.costBasis : h.marketValue || 0;
       }
 
       function renderPctCell(r, money) {
@@ -2616,12 +2991,16 @@
         if (!pctEl) return;
 
         if (buyMode === "build") {
-          const score = r.buildSig?.deployScore;
+          const score =
+            r.buildSig?.displayScore != null
+              ? r.buildSig.displayScore
+              : r.buildSig?.deployScore;
           const scoreHtml =
             score != null && Number.isFinite(score)
-              ? `<span class="money ${scoreMetaCls(score)}">${Number(score).toFixed(1)}%</span>`
+              ? `<span class="money ${scoreMetaCls(score, r.method)}">${Number(score).toFixed(1)}%</span>`
               : `<span class="money">—</span>`;
-          const valDefer = r.suggest?.valDefer || 0;
+          /* 估值延后：不含手数取整零头 */
+          const valDefer = r.suggest?.valDefer ?? 0;
           const deferLots =
             r.minLot > 0 && valDefer > 0 ? Math.floor(valDefer / r.minLot) : 0;
           let deferHtml;
@@ -2629,6 +3008,14 @@
             deferHtml = gapPairHtml(
               `<span class="gap-val defer">${money(valDefer)}</span>`,
               lotsTag(deferLots, true),
+            );
+          } else if ((r.needFill || 0) >= 1 && (r.buildSig?.factor ?? 1) <= 0) {
+            deferHtml = gapPairHtml(
+              `<span class="gap-val defer">${money(r.needFill)}</span>`,
+              lotsTag(
+                r.minLot > 0 ? Math.floor(r.needFill / r.minLot) : 0,
+                true,
+              ),
             );
           } else {
             deferHtml = gapPairHtml(
@@ -2640,8 +3027,9 @@
           return;
         }
 
+        const heldPct = r.cost > 0 ? r.costBasis : r.marketValue;
         const targetHtml = `<span class="ratio-badge" style="opacity:.65">${r.targetPct.toFixed(0)}%</span>`;
-        if (getTotalAmount() > 0 && r.marketValue > 0) {
+        if (getTotalAmount() > 0 && heldPct > 0) {
           pctEl.innerHTML = `<span class="ratio-badge">${r.actualPct.toFixed(1)}%</span><br>${targetHtml}`;
         } else {
           pctEl.innerHTML = `—<br>${targetHtml}`;
@@ -2688,84 +3076,90 @@
         return html;
       }
 
-      function signalFromPercentile(pct, divBonus) {
-        let action, level, tagCls;
-        if (pct < 30) {
-          action = "积极买入";
-          level = "buy";
-          tagCls = "tag-s5";
-        } else if (pct < 50) {
-          action = "正常买入";
-          level = "ok";
-          tagCls = "tag-s4";
-        } else if (pct < 70) {
-          action = "可以买入";
-          level = "ok";
-          tagCls = "tag-s3";
-        } else if (pct < 85) {
-          action = "减半买入";
-          level = "warn";
-          tagCls = "tag-s2";
-        } else {
-          action = "暂停买入";
-          level = "stop";
-          tagCls = "tag-s1";
-        }
+      function signalFromPercentile(pct, divBonus, bands) {
+        let action;
+        const b = bands || [VAL.cheap, VAL.normal, VAL.mild, VAL.rich];
+        /* 与部署系数同用 ≤cheap / ≥rich，避免 score=30 标签「正常」却满仓 */
+        if (pct <= b[0]) action = "积极买入";
+        else if (pct < b[1]) action = "正常买入";
+        else if (pct < b[2]) action = "可以买入";
+        else if (pct < b[3]) action = "谨慎买入";
+        else action = "暂停买入";
 
-        if (divBonus && pct < 75 && level === "warn") {
-          action = "可以买入";
-          level = "ok";
-          tagCls = "tag-s3";
+        let sig = signalOf(action);
+        /* 高股息：谨慎档可抬到「可以」，但不抬暂停 */
+        if (divBonus && pct < b[3] - 10 && sig.level === "warn") {
+          sig = signalOf("可以买入");
         }
-        return { action, level, tagCls };
-      }
-
-      function downgrade(sig, action, level, tagCls) {
-        const rank = { buy: 0, ok: 1, warn: 2, stop: 3, na: -1 };
-        if (rank[level] > rank[sig.level]) return { action, level, tagCls };
         return sig;
       }
 
-      function upgrade(sig, action, level, tagCls) {
-        const rank = { buy: 0, ok: 1, warn: 2, stop: 3, na: -1 };
-        if (rank[level] < rank[sig.level]) return { action, level, tagCls };
+      function actionRank(action) {
+        return SIGNAL_MAP[action]?.rank ?? -1;
+      }
+
+      function sigRank(sig) {
+        if (!sig) return -1;
+        if (sig.action && SIGNAL_MAP[sig.action])
+          return SIGNAL_MAP[sig.action].rank;
+        /* 兼容旧「减半买入」 */
+        if (sig.action === "减半买入") return 2;
+        const byLevel = { buy: 5, ok: 3, warn: 2, stop: 1, na: -1 };
+        return byLevel[sig.level] ?? -1;
+      }
+
+      function downgrade(sig, action) {
+        const next = signalOf(action);
+        if (next.rank < sigRank(sig)) return next;
         return sig;
+      }
+
+      function upgrade(sig, action) {
+        const next = signalOf(action);
+        if (next.rank > sigRank(sig)) return next;
+        return sig;
+      }
+
+      function forceSignal(action) {
+        return signalOf(action);
       }
 
       /* 纳指100：成长科技法 — PB权重高，PEG/ERP/溢价/美元 辅助 */
       function evalNasdaq(v) {
-        const peP = valPct(v, "pe_percentile");
-        const pbP = valPct(v, "pb_percentile");
-        const div = valPct(v, "yeild");
-        const peg = v.peg || 0;
+        const peP = readValPct(v, "pe_percentile");
+        const pbP = readValPct(v, "pb_percentile");
+        if (peP == null || pbP == null) return naValResult("纳指分位缺失");
+        const div = readYieldPct(v) ?? 0;
+        const peg = v.peg > 0 ? v.peg : 0;
         const erp = equityRiskPremium(v, usBondYieldForErp());
         const score = pbP * 0.6 + peP * 0.4;
 
-        let sig = signalFromPercentile(score, false);
-        if (pbP >= 90) sig = downgrade(sig, "减半买入", "warn", "tag-s2");
-        if (pbP >= 95 || score >= 85)
-          sig = { action: "暂停买入", level: "stop", tagCls: "tag-s1" };
-        if (peg > 2.5 && score >= 60)
-          sig = downgrade(sig, "减半买入", "warn", "tag-s2");
-        else if (peg > 2.0 && score >= 70)
-          sig = downgrade(sig, "减半买入", "warn", "tag-s2");
-        if (erp < -1.5 && score >= 55)
-          sig = { action: "暂停买入", level: "stop", tagCls: "tag-s1" };
-        else if (erp < 0 && score >= 60)
-          sig = downgrade(sig, "减半买入", "warn", "tag-s2");
-        if (peP >= 85 && pbP >= 85)
-          sig = { action: "暂停买入", level: "stop", tagCls: "tag-s1" };
+        let sig = signalFromPercentile(score, false, VAL.bands.ndx);
+        if (pbP >= VAL.ndxPbWarn) sig = downgrade(sig, "谨慎买入");
+        if (pbP >= VAL.ndxPbStop || score >= VAL.bands.ndx[3])
+          sig = forceSignal("暂停买入");
+        if (peg > VAL.ndxPegHi && score >= 70) sig = downgrade(sig, "谨慎买入");
+        else if (peg > VAL.ndxPegMid && score >= 80)
+          sig = downgrade(sig, "谨慎买入");
+        /* 成长股 ERP 常为负：只降级不硬停 */
+        if (erp < VAL.ndxErpWarn && score >= 70)
+          sig = downgrade(sig, "谨慎买入");
+        else if (erp < VAL.ndxErpSoft && score >= 75)
+          sig = downgrade(sig, "谨慎买入");
+        if (peP >= VAL.ndxDualStop && pbP >= VAL.ndxDualStop)
+          sig = forceSignal("暂停买入");
 
-        const zone = zoneFromPct(Math.max(pbP, peP, score));
+        const zone = zoneFromPct(score);
         const peVal = v.pe ? v.pe.toFixed(1) : "—";
         const pbVal = v.pb ? v.pb.toFixed(2) : "—";
+        const pegStr = peg ? peg.toFixed(2) : "—";
         const metrics =
           valLine(
             valPair("PE", peVal, peP.toFixed(0)),
             valPair("PB", pbVal, pbP.toFixed(0)),
           ) +
           valLine(
-            valPlain("PEG", peg ? peg.toFixed(2) : "—"),
+            valPlain("综合", score.toFixed(0) + "%"),
             valPlain("ERP", erp.toFixed(1) + "%"),
           );
         return {
@@ -2775,43 +3169,45 @@
           div,
           score,
           metrics,
-          detail: `${zone}·成长科技法`,
+          detail: `${zone}·成长科技法 · PEG${pegStr}`,
           zone,
         };
       }
 
-      /* 标普500：启发预期法 — PE分位 + 启发式预期 + ERP */
+      /* 标普500：启发预期法 — PE分位 + EY锚预期 + ERP */
       function evalSp500(v) {
-        const peP = valPct(v, "pe_percentile");
-        const pbP = valPct(v, "pb_percentile");
-        const div = valPct(v, "yeild");
-        const bogle = bogleReturn(v);
+        const peP = readValPct(v, "pe_percentile");
+        if (peP == null) return naValResult("标普PE分位缺失");
+        const pbP = readValPct(v, "pb_percentile");
+        const div = readYieldPct(v) ?? 0;
+        const expected = heuristicReturn(v);
         const erp = equityRiskPremium(v, usBondYieldForErp());
 
-        let sig = signalFromPercentile(peP, div > 2.5);
-        if (bogle < 2 && peP > 70)
-          sig = { action: "暂停买入", level: "stop", tagCls: "tag-s1" };
-        else if (bogle < 3.5 && peP > 78)
-          sig = downgrade(sig, "减半买入", "warn", "tag-s2");
-        else if (bogle < 4 && peP > 75)
-          sig = downgrade(sig, "减半买入", "warn", "tag-s2");
-        else if (bogle > 6 && peP < 50)
-          sig = { action: "积极买入", level: "buy", tagCls: "tag-s5" };
-        else if (bogle > 5 && peP < 40 && erp > 1)
-          sig = upgrade(sig, "积极买入", "buy", "tag-s5");
-        if (pbP > 95) sig = downgrade(sig, "减半买入", "warn", "tag-s2");
-        if (erp < -1.5 && peP > 60)
-          sig = downgrade(sig, "减半买入", "warn", "tag-s2");
-        else if (erp < -1 && peP > 65)
-          sig = downgrade(sig, "减半买入", "warn", "tag-s2");
+        let sig = signalFromPercentile(peP, div > 2.5, VAL.bands.sp500);
+        if (expected != null) {
+          if (expected < VAL.spBogleStop && peP > VAL.spPePauseGate)
+            sig = forceSignal("暂停买入");
+          else if (expected < VAL.spBogleWarnHi && peP > VAL.spPeWarnGate)
+            sig = downgrade(sig, "谨慎买入");
+          else if (expected > VAL.spBogleBuy && peP < 55)
+            sig = forceSignal("积极买入");
+          else if (expected > VAL.spBogleUp && peP < 50 && erp > 0.5)
+            sig = upgrade(sig, "积极买入");
+        }
+        /* 标普主锚是 PE：单独极端 PB 只降为谨慎；双高分位仍硬停 */
+        if (pbP != null && pbP >= VAL.ndxPbWarn)
+          sig = downgrade(sig, "谨慎买入");
+        if (peP >= VAL.spDualStop && pbP != null && pbP >= VAL.spDualStop)
+          sig = forceSignal("暂停买入");
+        if (erp < VAL.spErpWarn && peP > 72) sig = downgrade(sig, "谨慎买入");
 
-        const zone = zoneFromPct(Math.max(peP, pbP));
+        const zone = zoneFromPct(peP);
         const peVal = v.pe ? v.pe.toFixed(1) : "—";
-        const pbVal = v.pb ? v.pb.toFixed(2) : "—";
+        const expStr = expected != null ? expected.toFixed(1) + "%" : "—";
         const metrics =
           valLine(
             valPair("PE", peVal, peP.toFixed(0)),
-            valPlain("预期", bogle.toFixed(1) + "%"),
+            valPlain("预期", expStr),
           ) +
           valLine(
             valPlain("股息", div.toFixed(1) + "%"),
@@ -2820,9 +3216,9 @@
         return {
           ...sig,
           peP,
-          pbP,
+          pbP: pbP != null ? pbP : null,
           div,
-          bogle,
+          bogle: expected,
           score: peP,
           metrics,
           detail: `${zone}·启发预期法`,
@@ -2832,35 +3228,29 @@
 
       /* A股双分位（预留）：PE/PB综合 + ERP/ROE/PEG；当前组合未接入 */
       function evalAShare(v, proxy) {
-        const peP = valPct(v, "pe_percentile");
-        const pbP = valPct(v, "pb_percentile");
-        const div = valPct(v, "yeild");
-        const roe = valPct(v, "roe");
-        const peg = v.peg || 0;
+        const peP = readValPct(v, "pe_percentile");
+        const pbP = readValPct(v, "pb_percentile");
+        if (peP == null || pbP == null) return naValResult("A股分位缺失");
+        const div = readYieldPct(v) ?? 0;
+        const roe = readValPct(v, "roe");
+        const peg = v.peg > 0 ? v.peg : 0;
         const erp = equityRiskPremium(v, cnBondYieldForErp());
         const score = peP * 0.55 + pbP * 0.45;
 
         let sig = signalFromPercentile(score, div > 2.5);
 
-        if (erp > 3 && score < 45)
-          sig = upgrade(sig, "积极买入", "buy", "tag-s5");
-        else if (erp > 2 && score < 55)
-          sig = upgrade(sig, "正常买入", "ok", "tag-s4");
-        if (erp < 0 && score > 65)
-          sig = downgrade(sig, "减半买入", "warn", "tag-s2");
+        if (erp > VAL.aErpBuy && score < 45) sig = upgrade(sig, "积极买入");
+        else if (erp > VAL.aErpOk && score < 55) sig = upgrade(sig, "正常买入");
+        if (erp < VAL.aErpWarn && score > 65) sig = downgrade(sig, "谨慎买入");
 
         if (sig.level === "buy" || sig.level === "ok") {
-          if (peP > 88 || pbP > 92)
-            sig = downgrade(sig, "减半买入", "warn", "tag-s2");
-          else if (peP > 82 && pbP > 82)
-            sig = downgrade(sig, "减半买入", "warn", "tag-s2");
+          if (peP > 88 || pbP > 92) sig = downgrade(sig, "谨慎买入");
+          else if (peP > 82 && pbP > 82) sig = downgrade(sig, "谨慎买入");
         }
-        if (score >= 88)
-          sig = { action: "暂停买入", level: "stop", tagCls: "tag-s1" };
-        if (roe < 8 && score > 70)
-          sig = downgrade(sig, "减半买入", "warn", "tag-s2");
-        if (peg > 1.5 && score > 65)
-          sig = downgrade(sig, "减半买入", "warn", "tag-s2");
+        if (score >= 88) sig = forceSignal("暂停买入");
+        if (roe != null && roe < 8 && score > 70)
+          sig = downgrade(sig, "谨慎买入");
+        if (peg > 1.5 && score > 65) sig = downgrade(sig, "谨慎买入");
 
         const zone = zoneFromPct(score);
         const peVal = v.pe ? v.pe.toFixed(1) : "—";
@@ -2878,31 +3268,66 @@
         return { ...sig, peP, pbP, div, score, metrics, detail, zone };
       }
 
-      /* 红利低波：股息市净率法 — PB为主，股息/ROE质量修正 */
+      /* 红利低波：股息市净率法 — PB为主 + 股息/股债溢价/绝对PE/ROE 覆盖 */
       function evalDividend(v) {
-        const peP = valPct(v, "pe_percentile");
-        const pbP = valPct(v, "pb_percentile");
-        const div = valPct(v, "yeild");
-        const roe = valPct(v, "roe");
+        const peP = readValPct(v, "pe_percentile");
+        const pbP = readValPct(v, "pb_percentile");
+        if (peP == null || pbP == null) return naValResult("红利分位缺失");
+        const div = readYieldPct(v) ?? 0;
+        const roe = readValPct(v, "roe");
+        const pe = v.pe > 0 ? v.pe : null;
+        const cnY = cnBondYieldForErp();
+        const divPrem = div - cnY;
+        const divErp = earningsYield(v) - cnY;
         const score = pbP * 0.65 + peP * 0.35;
+        const bands = VAL.bands.dividend;
 
-        let sig = signalFromPercentile(score, div > 3.5);
-        if (div > 4.5 && pbP < 75) {
-          if (sig.level === "stop")
-            sig = { action: "减半买入", level: "warn", tagCls: "tag-s2" };
-          else if (sig.level === "warn")
-            sig = { action: "可以买入", level: "ok", tagCls: "tag-s3" };
-          else if (sig.level === "ok")
-            sig = { action: "正常买入", level: "ok", tagCls: "tag-s4" };
-        }
-        if (div > 5.5 && pbP < 60 && roe >= 8)
-          sig = { action: "积极买入", level: "buy", tagCls: "tag-s5" };
-        if (div > 4.5 && roe < 6)
-          sig = downgrade(sig, "减半买入", "warn", "tag-s2");
+        let sig = signalFromPercentile(score, false, bands);
+        /* 股息过低：红利袖子失去锚，中高分位降为谨慎 */
+        if (div < VAL.divYldFloor && score >= bands[1])
+          sig = downgrade(sig, "谨慎买入");
+        /* 过热股息 + 便宜 PB：抬到正常；强股息抬到可以 */
+        if (
+          div > VAL.divYldHot &&
+          pbP < VAL.divUpgradePb &&
+          score < VAL.divUpgradeScore &&
+          sig.level !== "stop"
+        )
+          sig = upgrade(sig, "正常买入");
+        else if (
+          div > VAL.divYldStrong &&
+          pbP < VAL.divUpgradePb &&
+          score < VAL.divUpgradeScore &&
+          sig.level !== "stop"
+        )
+          sig = upgrade(sig, "可以买入");
+        /* 绝对低估 PE */
+        if (
+          pe != null &&
+          pe <= VAL.divPeCheap &&
+          score < 55 &&
+          sig.level !== "stop"
+        )
+          sig = upgrade(sig, "可以买入");
+        /* 股债溢价（股息−CN10Y） */
+        if (
+          divPrem >= VAL.divPremBond &&
+          score < 50 &&
+          pbP < 50 &&
+          sig.level !== "stop"
+        )
+          sig = upgrade(sig, "可以买入");
+        /* 盈利收益率相对国债的溢价 */
+        if (divErp >= VAL.divErpBoost && score < 50 && sig.level !== "stop")
+          sig = upgrade(sig, "可以买入");
+        /* 高息但 ROE 偏低：质量陷阱 */
+        if (div > VAL.divYldStrong && roe != null && roe < 7)
+          sig = downgrade(sig, "谨慎买入");
 
-        const zone = zoneFromPct(pbP);
-        const peVal = v.pe ? v.pe.toFixed(1) : "—";
+        const zone = zoneFromPct(score);
+        const peVal = pe != null ? pe.toFixed(1) : "—";
         const pbVal = v.pb ? v.pb.toFixed(2) : "—";
+        const roeStr = roe != null ? roe.toFixed(1) : "—";
         const metrics =
           valLine(
             valPair("PE", peVal, peP.toFixed(0)),
@@ -2910,7 +3335,7 @@
           ) +
           valLine(
             valPair("PB", pbVal, pbP.toFixed(0)),
-            valPlain("ROE", roe.toFixed(1) + "%"),
+            valPlain("综合", score.toFixed(0) + "%"),
           );
         return {
           ...sig,
@@ -2919,21 +3344,42 @@
           div,
           score,
           metrics,
-          detail: `${zone}·股息市净率法`,
+          detail: `${zone}·股息市净率法 · ROE${roeStr}% · 股债溢价${divPrem.toFixed(1)}%`,
           zone,
         };
       }
 
       /* 十年国债：股债比价 + 真实 CN10Y 水平（新浪 CN10YT） */
       function evalBond(ctx) {
-        const { avgScore, highCount, lowCount, bondYieldPct } = ctx;
+        const {
+          avgScore,
+          highCount,
+          lowCount,
+          highWeight,
+          lowWeight,
+          equityN,
+          bondYieldPct,
+        } = ctx;
         let sig, metrics, detail, zone;
-        const y = bondYieldPct ?? CN_BOND_YIELD_DEFAULT;
-        const yStr = y.toFixed(2) + "%";
+        let yieldDriven = false;
+        const hasLiveYield =
+          bondYieldPct != null && Number.isFinite(bondYieldPct);
+        const y = hasLiveYield ? bondYieldPct : CN_BOND_YIELD_DEFAULT;
+        const yStr = y.toFixed(2) + "%" + (hasLiveYield ? "" : "·估");
+        const highNeed = Math.max(1, Math.ceil(equityN * VAL.bondHighFrac));
+        const lowNeed = Math.max(1, Math.ceil(equityN * VAL.bondLowFrac));
+        const equityRich =
+          avgScore >= VAL.bondAvgHigh ||
+          highWeight >= VAL.bondHighWeight ||
+          highCount >= highNeed;
+        const equityCheap =
+          avgScore <= VAL.bondAvgLow ||
+          lowWeight >= VAL.bondLowWeight ||
+          lowCount >= lowNeed;
 
-        if (avgScore >= 75 || highCount >= 3) {
-          if (y >= CN_BOND_ATTRACTIVE_Y) {
-            sig = { action: "积极买入", level: "buy", tagCls: "tag-s5" };
+        if (equityRich) {
+          if (hasLiveYield && y >= VAL.bondAttractiveY) {
+            sig = forceSignal("积极买入");
             zone = "合理区";
             metrics = valLine(
               valPlain("10Y", yStr),
@@ -2941,7 +3387,7 @@
             );
             detail = `${zone}·股债比价·债优`;
           } else {
-            sig = { action: "可以买入", level: "ok", tagCls: "tag-s3" };
+            sig = forceSignal("可以买入");
             zone = "合理区";
             metrics = valLine(
               valPlain("10Y", yStr),
@@ -2949,35 +3395,51 @@
             );
             detail = `${zone}·股债比价·维持`;
           }
-        } else if (avgScore <= 40 || lowCount >= 2) {
-          sig = { action: "减半买入", level: "warn", tagCls: "tag-s2" };
+        } else if (equityCheap) {
+          /* 股很便宜→债部署分位偏高；过低时标签与系数 0 对齐为暂停 */
+          if (avgScore <= VAL.bondAvgPause) {
+            sig = forceSignal("暂停买入");
+            zone = "偏低区";
+            metrics = valLine(
+              valPlain("10Y", yStr),
+              valPlain("股综", avgScore.toFixed(0) + "%"),
+            );
+            detail = `${zone}·股债比价·股优先`;
+          } else {
+            sig = forceSignal("谨慎买入");
+            zone = "偏低区";
+            metrics = valLine(
+              valPlain("10Y", yStr),
+              valPlain("低估", lowCount + "只"),
+            );
+            detail = `${zone}·股债比价·减债`;
+          }
+        } else if (hasLiveYield && y < VAL.bondYieldWarn && avgScore < 50) {
+          /* 仅实时收益率确认偏低时才谨慎，避免默认 1.8% 误伤 */
+          sig = forceSignal("谨慎买入");
           zone = "偏低区";
-          metrics = valLine(
-            valPlain("10Y", yStr),
-            valPlain("低估", lowCount + "只"),
-          );
-          detail = `${zone}·股债比价·减债`;
-        } else if (y < CN_BOND_RICH_Y) {
-          sig = { action: "减半买入", level: "warn", tagCls: "tag-s2" };
-          zone = "偏低区";
+          yieldDriven = true;
           metrics = valLine(
             valPlain("10Y", yStr),
             valPlain("股综", avgScore.toFixed(0) + "%"),
           );
           detail = `${zone}·股债比价·收益低`;
         } else {
-          sig = { action: "正常买入", level: "ok", tagCls: "tag-s4" };
+          sig = forceSignal("正常买入");
           zone = "合理区";
           metrics = valLine(
             valPlain("10Y", yStr),
             valPlain("股综", avgScore.toFixed(0) + "%"),
           );
-          detail = `${zone}·股债比价·维持`;
+          detail = hasLiveYield
+            ? `${zone}·股债比价·维持`
+            : `${zone}·股债比价·维持·待CN10Y`;
         }
         return {
           ...sig,
           peP: avgScore,
           score: avgScore,
+          yieldDriven,
           metrics,
           detail,
           zone,
@@ -3011,7 +3473,7 @@
           const evalFn = EVALUATORS[p.method];
           let r = evalFn
             ? evalFn(v, { ...p, proxy })
-            : evalAShare(v, { ...p, proxy });
+            : naValResult(`未知方法 ${p.method}`);
           r = applyPremiumAdvice(p.code, r);
           results[p.code] = r;
           if (r.score != null) {
@@ -3021,19 +3483,47 @@
 
         const bondP = PORTFOLIO.find((p) => p.method === "bond");
         if (bondP) {
-          const totalWeight = equityCtx.reduce((s, e) => s + e.weight, 0);
-          const avgScore = totalWeight
-            ? equityCtx.reduce((s, e) => s + e.score * e.weight, 0) /
-              totalWeight
-            : 60;
-          const highCount = equityCtx.filter((e) => e.zone === "偏高区").length;
-          const lowCount = equityCtx.filter((e) => e.zone === "低估区").length;
-          results[bondP.code] = evalBond({
-            avgScore,
-            highCount,
-            lowCount,
-            bondYieldPct: macroCtx.bondYieldPct,
-          });
+          if (!equityCtx.length) {
+            results[bondP.code] = {
+              action: "暂无数据",
+              level: "na",
+              tagCls: "tag-na",
+              metrics: "—",
+              detail: "等待权益估值",
+              score: null,
+            };
+          } else {
+            const totalWeight = equityCtx.reduce((s, e) => s + e.weight, 0);
+            const avgScore = totalWeight
+              ? equityCtx.reduce((s, e) => s + e.score * e.weight, 0) /
+                totalWeight
+              : 60;
+            const highCount = equityCtx.filter(
+              (e) => e.zone === "偏高区",
+            ).length;
+            const lowCount = equityCtx.filter(
+              (e) => e.zone === "低估区",
+            ).length;
+            const highWeight = totalWeight
+              ? equityCtx
+                  .filter((e) => e.zone === "偏高区")
+                  .reduce((s, e) => s + e.weight, 0) / totalWeight
+              : 0;
+            const lowWeight = totalWeight
+              ? equityCtx
+                  .filter((e) => e.zone === "低估区")
+                  .reduce((s, e) => s + e.weight, 0) / totalWeight
+              : 0;
+            results[bondP.code] = evalBond({
+              avgScore,
+              highCount,
+              lowCount,
+              highWeight,
+              lowWeight,
+              equityN: equityCtx.length,
+              bondYieldPct: macroCtx.bondYieldPct,
+            });
+          }
         }
 
         return results;
@@ -3047,16 +3537,12 @@
         if (prem?.pct != null) {
           const { pct, isQdii: qdiiFlag } = prem;
           if (qdiiFlag && pct > 5) {
-            r.action = "暂停买入";
-            r.level = "stop";
-            r.tagCls = "tag-s1";
+            Object.assign(r, forceSignal("暂停买入"));
             r.hardStop = true;
             r.detail = (r.detail || "") + ` · 溢价${pct.toFixed(1)}%过高`;
           } else if (qdiiFlag && pct > 3) {
             if (r.level === "buy" || r.level === "ok") {
-              r.action = "减半买入";
-              r.level = "warn";
-              r.tagCls = "tag-s2";
+              Object.assign(r, forceSignal("谨慎买入"));
             }
             r.detail = (r.detail || "") + ` · 溢价${pct.toFixed(1)}%偏高`;
           } else if (pct > 2 && !qdiiFlag) {
@@ -3068,9 +3554,7 @@
           const extra = usdDetailExtra();
           if (extra) {
             if (isUsdStrong() && (r.level === "buy" || r.level === "ok")) {
-              r.action = "减半买入";
-              r.level = "warn";
-              r.tagCls = "tag-s2";
+              Object.assign(r, forceSignal("谨慎买入"));
             }
             r.detailExtra = extra;
           }
@@ -3079,9 +3563,98 @@
         return r;
       }
 
-      function renderValuation(rows) {
+      /* 建议合计不超过剩余额度：按金额比例收紧，再手数取整 */
+      function lotShareFields(budget, price) {
+        const lotYuan = price > 0 ? price * LOT : 0;
+        const lots =
+          budget >= 1 && lotYuan > 0 ? Math.floor(budget / lotYuan) : 0;
+        const yuan = lots * lotYuan;
+        const lotRemain = Math.max(0, budget - yuan);
+        const lotShort = lotRemain >= 1 ? Math.max(0, lotYuan - lotRemain) : 0;
+        const sharesCanBuy =
+          price > 0 && budget >= price ? Math.floor(budget / price) : 0;
+        const sharesInPartial =
+          price > 0 && lotRemain >= price ? Math.floor(lotRemain / price) : 0;
+        const sharesToLot =
+          lots === 0 && sharesCanBuy > 0 && sharesCanBuy < LOT
+            ? LOT - sharesCanBuy
+            : sharesInPartial > 0 && sharesInPartial < LOT
+              ? LOT - sharesInPartial
+              : lotShort >= 1 && price > 0
+                ? Math.max(1, Math.ceil(lotShort / price))
+                : 0;
+        return {
+          lots,
+          yuan,
+          lotRemain,
+          lotShort,
+          sharesCanBuy,
+          sharesInPartial,
+          sharesToLot,
+        };
+      }
+
+      function scaleSuggestsToCash(rows, cashLeft) {
+        const list = (rows || []).filter(
+          (r) =>
+            r.suggest &&
+            r.price > 0 &&
+            ((r.suggest.yuan || 0) > 0 || (r.suggest.budget || 0) >= r.price),
+        );
+        let total = list.reduce(
+          (s, r) => s + Math.max(r.suggest.yuan || 0, r.suggest.budget || 0),
+          0,
+        );
+        /* 用可部署预算合计做封顶；手数金额不足时仍保留零头股数 */
+        const yuanTotal = list.reduce((s, r) => s + (r.suggest.yuan || 0), 0);
+        if (!(cashLeft >= 0) || total <= 0 || yuanTotal <= cashLeft + 0.5) {
+          return { suggestTotal: yuanTotal, capped: false };
+        }
+        if (cashLeft < 1) {
+          list.forEach((r) => {
+            const gap = r.needFill || 0;
+            const s = r.suggest;
+            r.suggest = {
+              ...s,
+              yuan: 0,
+              lots: 0,
+              budget: 0,
+              lotRemain: 0,
+              lotShort: 0,
+              sharesCanBuy: 0,
+              sharesInPartial: 0,
+              sharesToLot: 0,
+              valDefer: gap,
+              deferred: gap,
+              cashCapped: true,
+            };
+          });
+          return { suggestTotal: 0, capped: true };
+        }
+        const scale = cashLeft / Math.max(yuanTotal, total);
+        let suggestTotal = 0;
+        list.forEach((r) => {
+          const s = r.suggest;
+          const gap = r.needFill || 0;
+          const base = Math.max(s.yuan || 0, s.budget || 0);
+          const newBudget = Math.max(0, base * scale);
+          const fields = lotShareFields(newBudget, r.price);
+          r.suggest = {
+            ...s,
+            budget: newBudget,
+            ...fields,
+            valDefer: Math.max(0, gap - newBudget),
+            deferred: Math.max(0, gap - fields.yuan),
+            cashCapped: true,
+          };
+          suggestTotal += fields.yuan;
+        });
+        return { suggestTotal, capped: true };
+      }
+
+      function renderValuation(rows, preResults) {
         ensureMacroUsdcny();
-        const results = evaluatePortfolio();
+        const results = preResults || evaluatePortfolio();
         logSignalHistory(results);
         let buyN = 0,
           warnN = 0,
@@ -3090,8 +3663,8 @@
         if (rows) rows.forEach((r) => (rowByCode[r.code] = r));
 
         let suggestTotal = 0;
-        let deferTotal = 0;
         let valDeferTotal = 0;
+        let cashCapped = false;
 
         PORTFOLIO.forEach((p) => {
           const r = results[p.code];
@@ -3110,25 +3683,52 @@
           if (buyMode === "build" && row) {
             const buildSig = toBuildSignal(r, p.method);
             const totalAmt = getTotalAmount();
+            const heldBase =
+              row.heldBase != null
+                ? row.heldBase
+                : row.cost > 0
+                  ? row.costBasis
+                  : row.marketValue;
             const suggest = suggestBuyNow(
-              row.needFill,
+              row.targetValue,
+              heldBase,
               row.price,
               buildSig.factor || 0,
               totalAmt,
             );
             row.suggest = suggest;
             row.buildSig = buildSig;
-            suggestTotal += suggest.yuan;
-            deferTotal += suggest.deferred;
-            valDeferTotal += suggest.valDefer;
           }
-          document.getElementById("adv-" + p.code).innerHTML = renderSignalTag(
-            r.action,
+          document.getElementById("adv-" + p.code).innerHTML = renderAdviceCell(
+            r,
+            row,
           );
           if (r.level === "buy" || r.level === "ok") buyN++;
           else if (r.level === "warn") warnN++;
           else if (r.level === "stop") stopN++;
         });
+
+        if (buyMode === "build" && rows) {
+          const totalAmt = getTotalAmount();
+          const heldTotal = rows.reduce(
+            (s, r) =>
+              s +
+              (r.heldBase != null
+                ? r.heldBase
+                : r.cost > 0
+                  ? r.costBasis || 0
+                  : r.marketValue || 0),
+            0,
+          );
+          const cashLeft = Math.max(0, totalAmt - heldTotal);
+          const scaled = scaleSuggestsToCash(rows, cashLeft);
+          suggestTotal = scaled.suggestTotal;
+          cashCapped = scaled.capped;
+          valDeferTotal = rows.reduce(
+            (s, r) => s + (r.suggest?.valDefer || 0),
+            0,
+          );
+        }
 
         const parts = [];
         if (buyMode === "build") {
@@ -3136,12 +3736,13 @@
           if (totalAmt <= 0) parts.push("请先填投入总额");
           else {
             parts.push(`本次建议 ¥${fmt(suggestTotal)}`);
+            if (cashCapped) parts.push("已按剩余额度收紧");
             if (valDeferTotal >= 1)
               parts.push(`估值延后 ¥${fmt(valDeferTotal)}`);
           }
         } else {
           if (buyN) parts.push(`${buyN} 只可买`);
-          if (warnN) parts.push(`${warnN} 只建议减半`);
+          if (warnN) parts.push(`${warnN} 只建议谨慎`);
           if (stopN) parts.push(`${stopN} 只建议暂停`);
         }
         const sourceStr =
@@ -3179,14 +3780,20 @@
         );
       }
 
-      /* 分位颜色：与 signalFromPercentile / 买入阶梯同阈值 */
-      function scoreMetaCls(score) {
+      /* 分位颜色：优先用品种 bands，与买入标签阈值对齐 */
+      function scoreMetaCls(score, method) {
         if (score == null || !Number.isFinite(score)) return "";
-        if (score < 30) return "score-s5"; /* 积极买入 */
-        if (score < 50) return "score-s4"; /* 正常买入 */
-        if (score < 70) return "score-s3"; /* 可以买入 */
-        if (score < 85) return "score-s2"; /* 减半买入 */
-        return "score-s1"; /* 暂停买入 · ≥85 偏贵 */
+        const b = (method && VAL.bands[method]) || [
+          VAL.cheap,
+          VAL.normal,
+          VAL.mild,
+          VAL.rich,
+        ];
+        if (score <= b[0]) return "score-s5"; /* 积极买入 */
+        if (score < b[1]) return "score-s4"; /* 正常买入 */
+        if (score < b[2]) return "score-s3"; /* 可以买入 */
+        if (score < b[3]) return "score-s2"; /* 谨慎买入 */
+        return "score-s1"; /* 暂停买入 */
       }
 
       async function loadValuation() {
@@ -3373,7 +3980,6 @@
             loadValuation(),
             loadMacro(),
           ]);
-          renderValuation();
           if (quotesOk) setQuote("已更新 " + fmtTime(new Date()), true);
           calculate();
         } catch (e) {
@@ -3398,7 +4004,29 @@
         return { setTotal, items, actualTotal };
       }
 
+      function renderOneLotMarket(rows) {
+        const barEl = document.getElementById("sOneLotBar");
+        if (!barEl) return;
+        const items = (rows || [])
+          .filter((r) => r.price > 0)
+          .map((r) => ({
+            name: r.name,
+            yuan: r.price * LOT,
+          }));
+        if (!items.length) {
+          barEl.textContent = "—";
+          return;
+        }
+        barEl.innerHTML = items
+          .map(
+            (i) =>
+              `<div class="stat"><div class="lbl">${i.name}</div><div class="val">¥${fmt(i.yuan)}</div></div>`,
+          )
+          .join("");
+      }
+
       function renderLotPrices(rows) {
+        renderOneLotMarket(rows);
         const barEl = document.getElementById("sLotBar");
         const footEl = document.getElementById("sLotFoot");
         const footAmtEl = document.getElementById("sLotFootAmt");
@@ -3449,15 +4077,24 @@
         });
 
         const holdingsTotal = holdings.reduce((s, r) => s + r.marketValue, 0);
+        /* 已投入口径与缺口一致：成本 / 市值可选 */
+        const heldDeployedTotal = holdings.reduce(
+          (s, h) => s + heldForGap(h),
+          0,
+        );
         const costTotal = holdings.reduce((s, r) => s + r.costBasis, 0);
         const hasHoldings = holdingsTotal > 0;
 
         const rows = holdings.map((h) => {
           const targetValue = newCash > 0 ? newCash * h.ratio : 0;
-          /* 欠配/超配按成本（无成本时退回市值） */
-          const heldBase = h.cost > 0 ? h.costBasis : h.marketValue;
+          const heldBase = heldForGap(h);
           const gap = targetValue - heldBase;
-          const needFill = gap > 0 ? gap : 0;
+          const val = valResults[h.code];
+          /* DCA：暂停/硬停不建议买，待补置 0 */
+          let needFill = gap > 0 ? gap : 0;
+          if (buyMode === "dca" && (val?.hardStop || val?.level === "stop")) {
+            needFill = 0;
+          }
           const minLot = h.price > 0 ? h.price * LOT : 0;
           const allocTarget = newCash > 0 ? newCash * h.ratio : 0;
           const lots = minLot > 0 ? Math.floor(allocTarget / minLot) : 0;
@@ -3470,14 +4107,12 @@
           const needLots =
             minLot > 0 && needFill > 0 ? Math.floor(needFill / minLot) : 0;
           const actualPct =
-            newCash > 0 && h.marketValue > 0
-              ? (h.marketValue / newCash) * 100
-              : 0;
+            newCash > 0 && heldBase > 0 ? (heldBase / newCash) * 100 : 0;
           const targetPct = h.ratio * 100;
-          const val = valResults[h.code];
           return {
             ...h,
             targetValue,
+            heldBase,
             gap,
             needFill,
             needLots,
@@ -3514,14 +4149,14 @@
           }
         });
 
-        renderValuation(rows);
+        renderValuation(rows, valResults);
         rows.forEach((r) => {
           renderTgtNeedCell(r, money);
           renderPctCell(r, money);
         });
 
         const totalPnl = costTotal > 0 ? holdingsTotal - costTotal : null;
-        const left = newCash > 0 ? newCash - costTotal : null;
+        const left = newCash > 0 ? newCash - heldDeployedTotal : null;
         const dayPnl = holdings.reduce((s, r) => {
           if (r.shares <= 0 || r.price <= 0) return s;
           const prevClose = getPrevClose(r.code);
@@ -3535,9 +4170,15 @@
         const minAll = oneLotEach;
         const allOk = newCash <= 0 || rows.every((r) => r.lots >= 1);
         const overList = rows.filter((r) => r.gap < -1).map((r) => r.name);
+        const trimList = rows
+          .filter((r) => {
+            const t = suggestTrimAction(r, r.val);
+            return t && t.level === "trim";
+          })
+          .map((r) => r.name);
         const underList = rows
-          .filter((r) => r.gap > 1)
-          .sort((a, b) => b.gap - a.gap)
+          .filter((r) => r.needFill > 1)
+          .sort((a, b) => b.needFill - a.needFill)
           .map((r) => r.name);
         const stopList = rows
           .filter((r) => r.val?.level === "stop" && r.gap > 1)
@@ -3589,12 +4230,18 @@
               (s, r) => s + (r.suggest?.valDefer || 0),
               0,
             );
+            const capped = rows.some((r) => r.suggest?.cashCapped);
             extra = ` · 本次建议买入 ¥${fmt(sug)}`;
+            if (capped) extra += "（已按剩余额度收紧）";
             if (valDef >= 1) extra += ` · 估值延后 ¥${fmt(valDef)}`;
+            if (trimList.length)
+              extra += ` · 建议减仓：${trimList.slice(0, 3).join("/")}`;
           } else {
             if (underList.length)
               extra = ` · 欠配：${underList.slice(0, 3).join("/")}`;
-            if (overList.length)
+            if (trimList.length)
+              extra += ` · 建议减仓：${trimList.slice(0, 3).join("/")}`;
+            else if (overList.length)
               extra += ` · 超配：${overList.slice(0, 3).join("/")}`;
             if (stopList.length) extra += ` · 高估暂停：${stopList.join("/")}`;
           }
@@ -3602,13 +4249,17 @@
             "ok",
             `✓ 剩余未分配 ¥${fmt(Math.max(0, left ?? 0))}${extra}`,
           );
+        } else if (trimList.length) {
+          setBanner("warn", `⚠ ${trimList.join("/")} 超配且偏贵，建议减仓`);
         } else if (overList.length && !underList.length) {
           setBanner("warn", `⚠ ${overList.join("/")} 超配，暂无需加仓`);
         } else {
           let extra = "";
           if (underList.length)
             extra = ` · 欠配：${underList.slice(0, 3).join("/")}`;
-          if (overList.length)
+          if (trimList.length)
+            extra += ` · 建议减仓：${trimList.slice(0, 3).join("/")}`;
+          else if (overList.length)
             extra += ` · 超配：${overList.slice(0, 3).join("/")}`;
           setBanner("ok", `✓ 配比均衡${extra}`);
         }
@@ -3623,7 +4274,7 @@
       refreshAll(false);
       setInterval(() => refreshAll(false), REFRESH_MS);
 
-      document.querySelectorAll(".mode-btn").forEach((btn) => {
+      document.querySelectorAll("#modeToggle .mode-btn").forEach((btn) => {
         btn.addEventListener("click", () => setBuyMode(btn.dataset.mode));
       });
 
