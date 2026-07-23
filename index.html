@@ -1128,22 +1128,14 @@
           font-size: 0.64rem;
           line-height: 1.4;
         }
-        .cell-stack.col-tgt .sub .gap-pair {
+        /* 目标/待补 与 分位/延后：金额在上、手数在下，布局一致 */
+        .cell-stack.col-tgt .sub .gap-pair,
+        .cell-stack.col-pct .sub .gap-pair {
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 2px;
           white-space: normal;
-        }
-        /* 分位/延后保持单行，避免与总额配仓切换时行高抖动 */
-        .cell-stack.col-pct .sub .gap-pair {
-          display: inline-flex;
-          flex-direction: row;
-          flex-wrap: nowrap;
-          align-items: baseline;
-          justify-content: center;
-          gap: 3px;
-          white-space: nowrap;
         }
         .cell-stack.col-tgt .sub .tag,
         .cell-stack.col-pct .sub .tag {
@@ -1158,17 +1150,14 @@
           -webkit-overflow-scrolling: touch;
         }
         .signal-legend {
-          flex-wrap: nowrap;
+          flex-wrap: wrap;
           justify-content: center;
           align-items: baseline;
-          gap: 0;
+          gap: 2px 0;
           padding: 7px 10px;
-          overflow-x: auto;
-          -webkit-overflow-scrolling: touch;
-          scrollbar-width: none;
-        }
-        .signal-legend::-webkit-scrollbar {
-          display: none;
+          overflow-x: visible;
+          width: 100%;
+          box-sizing: border-box;
         }
         .signal-legend .legend-title {
           flex-shrink: 0;
@@ -1182,14 +1171,14 @@
         .signal-legend .legend-hint {
           display: none;
         }
-        /* 手机端图例：去胶囊底，单行文字 + 间隔点 */
+        /* 手机端图例：去胶囊底，文字 + 间隔点，固定在表外不随左右滚动 */
         .signal-legend .tag {
           background: transparent !important;
           padding: 0;
           border-radius: 0;
           font-size: 0.58rem;
           font-weight: 600;
-          line-height: 1.2;
+          line-height: 1.35;
         }
         .signal-legend .tag + .tag::before {
           content: " · ";
@@ -1316,16 +1305,16 @@
             </thead>
             <tbody id="mainBody"></tbody>
           </table>
-          <div class="signal-legend" id="signalLegend">
-            <span class="legend-title">操作建议</span>
-            <span class="tag tag-s5">积极买入</span>
-            <span class="tag tag-s4">正常买入</span>
-            <span class="tag tag-s3">可以买入</span>
-            <span class="tag tag-s2">谨慎买入</span>
-            <span class="tag tag-s1">暂停买入</span>
-            <span class="tag tag-trim">建议减仓</span>
-            <span class="tag tag-over">超配观望</span>
-          </div>
+        </div>
+        <div class="signal-legend" id="signalLegend">
+          <span class="legend-title">操作建议</span>
+          <span class="tag tag-s5">积极买入</span>
+          <span class="tag tag-s4">正常买入</span>
+          <span class="tag tag-s3">可以买入</span>
+          <span class="tag tag-s2">谨慎买入</span>
+          <span class="tag tag-s1">暂停买入</span>
+          <span class="tag tag-trim">建议减仓</span>
+          <span class="tag tag-over">超配观望</span>
         </div>
       </div>
 
@@ -1387,12 +1376,12 @@
         val: { label: "估值指标", minWidth: { desktop: 148, mobile: 158 } },
         pnl: { label: "盈亏", minWidth: { desktop: 68, mobile: 68 } },
         adv: { label: "操作建议", minWidth: { desktop: 78, mobile: 68 } },
-        hold: { label: "持仓", minWidth: { desktop: 68, mobile: 72 } },
-        cost: { label: "成本", minWidth: { desktop: 68, mobile: 72 } },
+        hold: { label: "持仓", minWidth: { desktop: 68, mobile: 78 } },
+        cost: { label: "成本", minWidth: { desktop: 68, mobile: 78 } },
         price: { label: "现价", minWidth: { desktop: 58, mobile: 58 } },
         cm: { label: "成本/市值", minWidth: { desktop: 88, mobile: 68 } },
-        tgt: { label: "目标/待补", minWidth: { desktop: 128, mobile: 72 } },
-        pct: { label: "占比/比例", minWidth: { desktop: 128, mobile: 72 } },
+        tgt: { label: "目标/待补", minWidth: { desktop: 128, mobile: 78 } },
+        pct: { label: "占比/比例", minWidth: { desktop: 128, mobile: 78 } },
       };
 
       const TABLE_COL_KEYS = Object.keys(TABLE_COLS);
