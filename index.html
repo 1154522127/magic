@@ -450,6 +450,9 @@
         color: var(--success);
         font-variant-numeric: tabular-nums;
       }
+      #sPosCostFootAmt {
+        color: var(--danger);
+      }
       .val.ok {
         color: var(--success);
       }
@@ -2706,6 +2709,10 @@
       function renderAdviceCell(sig, row) {
         const trim = suggestTrimAction(row, sig);
         if (trim) {
+          /* 超配观望只标状态，不展示超配金额 */
+          if (trim.action === "超配观望") {
+            return `<div class="adv-cell"><span class="tag ${trim.tagCls}">${trim.action}</span></div>`;
+          }
           return `<div class="adv-cell"><span class="tag ${trim.tagCls}">${trim.action}</span><span class="adv-sub">${fmtDisplay(trim.amount)}</span></div>`;
         }
         return renderSignalTag(sig?.action || "—");
