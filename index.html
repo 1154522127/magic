@@ -60,8 +60,11 @@
         padding: 8px 12px calc(10px + env(safe-area-inset-bottom));
         padding-top: calc(8px + env(safe-area-inset-top));
         display: grid;
-        grid-template-rows: auto auto 1fr auto auto;
+        /* 三段都按内容高度；align-content:start 避免中间被撑出空白 */
+        grid-template-rows: auto auto auto;
+        align-content: start;
         gap: 6px;
+        overflow-y: auto;
       }
 
       .topbar {
@@ -323,9 +326,9 @@
         font-variant-numeric: tabular-nums;
       }
       .defer-amt {
-        color: var(--warning);
+        color: var(--muted);
       }
-      /* 分位严重度：与买入阶梯同色（success / info / warning / danger） */
+      /* 分位严重度（占比徽章等）：与买入阶梯同色 */
       .score-s5,
       .score-s4 {
         color: var(--success);
@@ -417,6 +420,10 @@
       .lot-wrap[hidden] {
         display: none !important;
       }
+      /* 有合计时占位会被撑高：下一组上移，卡片间距与「一手市值→仓位成本」一致 */
+      .lot-wrap:has(> .lot-foot:not([hidden])) + .lot-wrap {
+        margin-top: -1.35em;
+      }
       .lot-title {
         font-size: 0.65rem;
         color: var(--muted);
@@ -427,19 +434,20 @@
         display: flex;
         justify-content: flex-end;
         align-items: baseline;
-        gap: 6px;
-        margin-top: 4px;
-        margin-right: 16px;
-        padding: 0 2px 0 0;
+        gap: 8px;
+        margin-top: 2px;
+        margin-right: 4px;
+        padding: 2px 4px 0;
       }
       .lot-foot-lbl {
         font-size: 0.65rem;
         color: var(--muted);
+        font-weight: 400;
       }
       .lot-foot-amt {
         font-size: 0.78rem;
         font-weight: 700;
-        color: var(--warning);
+        color: var(--success);
         font-variant-numeric: tabular-nums;
       }
       .val.ok {
@@ -495,9 +503,9 @@
         display: flex;
         flex-direction: column;
         min-height: 0;
+        width: 100%;
       }
       .table-scroll {
-        flex: 1;
         overflow: auto;
         min-height: 0;
       }
@@ -692,7 +700,8 @@
         color: var(--success);
       }
       .gap-val.defer {
-        color: var(--warning);
+        color: var(--muted);
+        font-weight: 600;
       }
       .gap-val.over {
         color: var(--warning);
@@ -737,14 +746,12 @@
       .val-detail {
         margin-top: 2px;
         font-size: 0.54rem;
-        line-height: 1.2;
-        word-break: break-all;
+        line-height: 1.35;
         opacity: 0.75;
         white-space: normal;
         text-align: center;
-      }
-      .val-detail-sub {
-        margin-top: 1px;
+        word-break: keep-all;
+        overflow-wrap: anywhere;
       }
 
       .hd-short {
@@ -806,12 +813,17 @@
         background: rgba(245, 158, 11, 0.15);
         color: var(--warning);
       }
+      .tag-defer {
+        background: rgba(139, 156, 179, 0.14);
+        color: var(--muted);
+      }
 
       .signal-legend {
         display: flex;
         align-items: center;
         justify-content: center;
         flex-wrap: wrap;
+        flex-shrink: 0;
         gap: 5px 10px;
         padding: 5px 10px;
         border-top: 1px solid var(--border);
@@ -1044,8 +1056,11 @@
         .lot-foot {
           margin-top: 2px;
           margin-right: 2px;
-          padding: 0 2px 0 0;
-          gap: 4px;
+          padding: 2px 2px 0;
+          gap: 6px;
+        }
+        .lot-wrap:has(> .lot-foot:not([hidden])) + .lot-wrap {
+          margin-top: -1.15em;
         }
         .lot-foot-lbl {
           font-size: 0.55rem;
@@ -1054,7 +1069,6 @@
         .lot-foot-amt {
           font-size: 0.66rem;
           font-weight: 700;
-          color: var(--warning);
         }
 
         /* 固定两行高度，切换总额/估值配仓时底部不跟着抖 */
@@ -1067,6 +1081,7 @@
           display: -webkit-box;
           -webkit-box-orient: vertical;
           -webkit-line-clamp: 2;
+          line-clamp: 2;
           overflow: hidden;
           text-overflow: ellipsis;
           word-break: break-word;
@@ -1229,11 +1244,11 @@
             role="group"
             aria-label="买入模式"
           >
-            <button type="button" class="mode-btn" data-mode="dca">
-              总额配仓
-            </button>
             <button type="button" class="mode-btn active" data-mode="build">
               估值配仓
+            </button>
+            <button type="button" class="mode-btn" data-mode="dca">
+              总额配仓
             </button>
           </div>
           <div class="topbar-meta">
@@ -1298,16 +1313,16 @@
             </thead>
             <tbody id="mainBody"></tbody>
           </table>
-        </div>
-        <div class="signal-legend" id="signalLegend">
-          <span class="legend-title">操作建议</span>
-          <span class="tag tag-s5">积极买入</span>
-          <span class="tag tag-s4">正常买入</span>
-          <span class="tag tag-s3">可以买入</span>
-          <span class="tag tag-s2">谨慎买入</span>
-          <span class="tag tag-s1">暂停买入</span>
-          <span class="tag tag-trim">建议减仓</span>
-          <span class="tag tag-over">超配观望</span>
+          <div class="signal-legend" id="signalLegend">
+            <span class="legend-title">操作建议</span>
+            <span class="tag tag-s5">积极买入</span>
+            <span class="tag tag-s4">正常买入</span>
+            <span class="tag tag-s3">可以买入</span>
+            <span class="tag tag-s2">谨慎买入</span>
+            <span class="tag tag-s1">暂停买入</span>
+            <span class="tag tag-trim">建议减仓</span>
+            <span class="tag tag-over">超配观望</span>
+          </div>
         </div>
       </div>
 
@@ -1339,6 +1354,14 @@
         <div class="lot-wrap" id="oneLotWrap">
           <div class="lot-title">当前一手市值</div>
           <div class="summary-bar lot-bar" id="sOneLotBar">—</div>
+        </div>
+        <div class="lot-wrap" id="oneLotCostWrap">
+          <div class="lot-title">当前仓位成本</div>
+          <div class="summary-bar lot-bar" id="sOneLotCostBar">—</div>
+          <div class="lot-foot" id="sPosCostFoot" hidden>
+            <span class="lot-foot-lbl">合计</span>
+            <span class="lot-foot-amt" id="sPosCostFootAmt">—</span>
+          </div>
         </div>
         <div class="lot-wrap">
           <div class="lot-title">最低仓位配比</div>
@@ -2892,15 +2915,25 @@
       }
 
       /* 目标=总额×比例；总额配仓待补=目标−成本；估值配仓待补=目标×系数−成本 */
-      function lotsTag(lots, warn) {
+      function lotsTag(lots, tone) {
         const n = lots > 0 ? lots : 0;
-        const cls = warn ? "tag tag-warn" : "tag tag-ok";
+        const cls =
+          tone === true || tone === "warn"
+            ? "tag tag-warn"
+            : tone === "defer" || tone === "muted"
+              ? "tag tag-defer"
+              : "tag tag-ok";
         return `<span class="${cls}">${n}手</span>`;
       }
 
-      function sharesTag(shares, warn) {
+      function sharesTag(shares, tone) {
         const n = shares > 0 ? shares : 0;
-        const cls = warn ? "tag tag-warn" : "tag tag-ok";
+        const cls =
+          tone === true || tone === "warn"
+            ? "tag tag-warn"
+            : tone === "defer" || tone === "muted"
+              ? "tag tag-defer"
+              : "tag tag-ok";
         return `<span class="${cls}">${n}股</span>`;
       }
 
@@ -3021,30 +3054,28 @@
               : r.buildSig?.deployScore;
           const scoreHtml =
             score != null && Number.isFinite(score)
-              ? `<span class="money ${scoreMetaCls(score, r.method)}">${Number(score).toFixed(1)}%</span>`
+              ? `<span class="ratio-badge ${scoreMetaCls(score, r.method)}">${Number(score).toFixed(1)}%</span>`
               : `<span class="money">—</span>`;
-          /* 估值延后：不含手数取整零头 */
+          /* 估值延后：不含手数取整零头；样式与待补一致 */
           const valDefer = r.suggest?.valDefer ?? 0;
           const deferLots =
             r.minLot > 0 && valDefer > 0 ? Math.floor(valDefer / r.minLot) : 0;
           let deferHtml;
           if (valDefer >= 1) {
             deferHtml = gapPairHtml(
-              `<span class="gap-val defer">${money(valDefer)}</span>`,
-              lotsTag(deferLots, true),
+              `<span class="gap-val need">${money(valDefer)}</span>`,
+              lotsTag(deferLots, false),
             );
           } else if ((r.needFill || 0) >= 1 && (r.buildSig?.factor ?? 1) <= 0) {
+            const n = r.minLot > 0 ? Math.floor(r.needFill / r.minLot) : 0;
             deferHtml = gapPairHtml(
-              `<span class="gap-val defer">${money(r.needFill)}</span>`,
-              lotsTag(
-                r.minLot > 0 ? Math.floor(r.needFill / r.minLot) : 0,
-                true,
-              ),
+              `<span class="gap-val need">${money(r.needFill)}</span>`,
+              lotsTag(n, false),
             );
           } else {
             deferHtml = gapPairHtml(
-              `<span class="gap-val defer">${money(0)}</span>`,
-              lotsTag(0, true),
+              `<span class="gap-val ok">${money(0)}</span>`,
+              lotsTag(0, false),
             );
           }
           pctEl.innerHTML = `${scoreHtml}<br><span class="sub">${deferHtml}</span>`;
@@ -3092,12 +3123,29 @@
         return `<div class="val-line">${parts.join(" ")}</div>`;
       }
 
+      function formatValDetail(text) {
+        if (!text) return "";
+        return String(text)
+          .replace(/\s*·\s*/g, "·")
+          .split("·")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((seg, i) => (i === 0 ? seg : `·${seg}`))
+          .join("<wbr>");
+      }
+
       function renderValCell(metrics, detail, detailExtra) {
-        let html = metrics + `<div class="val-detail">${detail}</div>`;
+        let full = detail || "";
         if (detailExtra) {
-          html += `<div class="val-detail val-detail-sub">${detailExtra}</div>`;
+          const extra = String(detailExtra)
+            .replace(/^\s*·\s*/, "")
+            .trim();
+          if (extra) full = full ? `${full}·${extra}` : extra;
         }
-        return html;
+        const body = formatValDetail(full);
+        return body
+          ? metrics + `<div class="val-detail">${body}</div>`
+          : metrics;
       }
 
       function signalFromPercentile(pct, divBonus, bands) {
@@ -4028,6 +4076,41 @@
         return { setTotal, items, actualTotal };
       }
 
+      function renderPositionCost(rows) {
+        const barEl = document.getElementById("sOneLotCostBar");
+        const footEl = document.getElementById("sPosCostFoot");
+        const footAmtEl = document.getElementById("sPosCostFootAmt");
+        if (!barEl) return;
+        const list = rows || [];
+        if (!list.length) {
+          barEl.textContent = "—";
+          if (footEl) footEl.hidden = true;
+          return;
+        }
+        let total = 0;
+        let hasAny = false;
+        barEl.innerHTML = list
+          .map((r) => {
+            const yuan = r.cost > 0 && r.shares > 0 ? r.costBasis : null;
+            if (yuan != null) {
+              total += yuan;
+              hasAny = true;
+            }
+            const val = yuan != null ? "¥" + fmt(yuan) : "—";
+            return `<div class="stat"><div class="lbl">${r.name}</div><div class="val">${val}</div></div>`;
+          })
+          .join("");
+        if (footEl && footAmtEl) {
+          if (hasAny) {
+            footAmtEl.textContent = "¥" + fmt(total);
+            footEl.hidden = false;
+          } else {
+            footAmtEl.textContent = "—";
+            footEl.hidden = true;
+          }
+        }
+      }
+
       function renderOneLotMarket(rows) {
         const barEl = document.getElementById("sOneLotBar");
         if (!barEl) return;
@@ -4051,6 +4134,7 @@
 
       function renderLotPrices(rows) {
         renderOneLotMarket(rows);
+        renderPositionCost(rows);
         const barEl = document.getElementById("sLotBar");
         const footEl = document.getElementById("sLotFoot");
         const footAmtEl = document.getElementById("sLotFootAmt");
