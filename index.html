@@ -328,13 +328,15 @@
       .defer-amt {
         color: var(--muted);
       }
-      /* 分位严重度（占比徽章等）：与买入阶梯同色 */
-      .score-s5,
+      /* 分位严重度：与说明栏 tag-s* / tag-trim / tag-over 同色 */
+      .score-s5 {
+        color: #a3e635;
+      }
       .score-s4 {
         color: var(--success);
       }
       .score-s3 {
-        color: var(--info);
+        color: #3b82f6;
       }
       .score-s2 {
         color: var(--warning);
@@ -342,17 +344,23 @@
       .score-s1 {
         color: var(--danger);
       }
+      .score-trim {
+        color: #fb923c;
+      }
+      .score-over {
+        color: #c084fc;
+      }
       .ratio-badge.score-s5 {
-        background: rgba(34, 197, 94, 0.24);
-        color: var(--success);
+        background: rgba(132, 204, 22, 0.26);
+        color: #a3e635;
       }
       .ratio-badge.score-s4 {
         background: rgba(34, 197, 94, 0.15);
         color: var(--success);
       }
       .ratio-badge.score-s3 {
-        background: rgba(59, 130, 246, 0.15);
-        color: var(--info);
+        background: rgba(59, 130, 246, 0.26);
+        color: #3b82f6;
       }
       .ratio-badge.score-s2 {
         background: rgba(245, 158, 11, 0.15);
@@ -361,6 +369,14 @@
       .ratio-badge.score-s1 {
         background: rgba(239, 68, 68, 0.18);
         color: var(--danger);
+      }
+      .ratio-badge.score-trim {
+        background: rgba(249, 115, 22, 0.24);
+        color: #fb923c;
+      }
+      .ratio-badge.score-over {
+        background: rgba(168, 85, 247, 0.22);
+        color: #c084fc;
       }
 
       .live-dot {
@@ -1443,8 +1459,8 @@
               <span class="tag tag-s5">≤30%</span>
               <span class="tag tag-s4">&lt;58%</span>
               <span class="tag tag-s3">&lt;72%</span>
-              <span class="tag tag-s2">72–96%</span>
-              <span class="tag tag-s1">≥96%</span>
+              <span class="tag tag-s2">72–92%</span>
+              <span class="tag tag-s1">≥92%</span>
             </div>
             <div class="band-row">
               <span class="legend-asset">红利</span>
@@ -1467,7 +1483,7 @@
       </div>
 
       <div class="bottom-area">
-        <div class="banner ok" id="banner">等待数据…</div>
+        <div class="banner info" id="banner">等待数据…</div>
         <div class="banner info" id="valBanner">
           估值加载中…（成长科技·启发预期·股息市净·股债比价+CN10Y）
         </div>
@@ -1634,7 +1650,7 @@
 
       /* 估值阈值集中配置（买入阶梯 / 部署系数 / 品种覆盖规则） */
       /* 激进分目标（1保守–100激进）：纳指~40 · 标普~42 · 红利~47 · 国债~53
-       * 纳指：warnCap 0.92→0.55、rich 99→92；标普 spPeWarnGate 70→75 避免过勤谨慎 */
+       * 纳指：warnCap 0.92→0.55、rich 99→92；标普暂停档 96→92（部署/warnCap 不变，激进分仍≈42） */
       const VAL = {
         cheap: 30,
         normal: 50,
@@ -1682,7 +1698,7 @@
         /* 标签分位带 [积极≤, 正常<, 可以<, 谨慎< / 暂停≥] */
         bands: {
           ndx: [28, 55, 78, 90],
-          sp500: [30, 58, 72, 96],
+          sp500: [30, 58, 72, 92],
           dividend: [22, 44, 66, 86],
         },
         /* 国债：股综/偏高仓位 → 债优；低估仓位 → 减债 */
@@ -1718,6 +1734,9 @@
         spPePauseGate: 95,
         /* 启发预期偏低：PE分位>75 降谨慎（覆盖股息加成后的中高分位；70 过勤→约38，75→约42） */
         spPeWarnGate: 75,
+        /* QDII 溢价覆盖（与 applyPremiumAdvice / 说明栏同源） */
+        qdiiPremStop: 5,
+        qdiiPremWarn: 3,
         /* 红利 */
         divPeCheap: 8,
         divYldFloor: 4.8,
@@ -1843,7 +1862,9 @@
       function premiumLevel(pct, isQdii) {
         if (pct == null) return { cls: "na", text: "—", level: "na" };
         const text = (pct >= 0 ? "+" : "") + pct.toFixed(2) + "%";
-        const threshold = isQdii ? { ok: 2, warn: 5 } : { ok: 0.5, warn: 2 };
+        const threshold = isQdii
+          ? { ok: 2, warn: VAL.qdiiPremStop }
+          : { ok: 0.5, warn: 2 };
         if (pct <= threshold.ok) return { cls: "ok", text, level: "ok" };
         if (pct <= threshold.warn) return { cls: "warn", text, level: "warn" };
         return { cls: "bad", text, level: "bad" };
@@ -2922,18 +2943,12 @@
         return raw;
       }
 
-      /* 展示用分位：
-       * - 降级为谨慎但部署分位仍低：按标签代理着色，避免显示「很便宜」
-       * - 升级（正常/积极）时仍展示真实综合分位，避免被代理分位压低造成「越涨越便宜」错觉
+      /* 展示用分位：权益一律真实综合/PE分位，与估值指标一致
+       * - 颜色仍跟操作建议（溢价硬停/股息降级等），避免「分位便宜但标签暂停」的错觉靠数字伪装
+       * - 国债收益驱动谨慎时无对应综合，用标签代理；其余用部署分位（已对权益取反）
        * - 部署系数仍用 deployScore（可被标签压低以对齐买入力度） */
       function buildDisplayScore(sig, method, deployScore) {
         if (method === "bond" && sig?.yieldDriven)
-          return actionToProxyScore(sig.action);
-        if (
-          sig?.level === "warn" &&
-          deployScore != null &&
-          deployScore < VAL.mild
-        )
           return actionToProxyScore(sig.action);
         if (
           method !== "bond" &&
@@ -3066,7 +3081,8 @@
             ? "tag tag-warn"
             : tone === "defer" || tone === "muted"
               ? "tag tag-defer"
-              : typeof tone === "string" && /^s[1-5]$/.test(tone)
+              : typeof tone === "string" &&
+                  (/^s[1-5]$/.test(tone) || tone === "trim" || tone === "over")
                 ? `tag tag-${tone}`
                 : "tag tag-ok";
         return `<span class="${cls}">${n}手</span>`;
@@ -3172,6 +3188,23 @@
         el.innerHTML = `<span class="money">${money(r.targetValue)}</span><br><span class="sub">${needHtml}</span>`;
       }
 
+      /* 覆盖规则文案：从 VAL 动态生成，展示在原「剩余未分配」横幅位置 */
+      function overlayRulesText() {
+        const stop = VAL.qdiiPremStop;
+        const yld = VAL.divYldFloor;
+        const stopStr = Number.isInteger(stop) ? String(stop) : stop.toFixed(1);
+        const yldStr = Number.isInteger(yld) ? String(yld) : yld.toFixed(1);
+        return (
+          `覆盖规则：QDII 溢价 >${stopStr}% → 暂停买入；` +
+          `红利股息 <${yldStr}% → 降为谨慎；` +
+          `分位列展示真实综合（颜色跟操作建议）`
+        );
+      }
+
+      function showOverlayRulesBanner() {
+        setBanner("info", overlayRulesText());
+      }
+
       function syncModeUI() {
         document.querySelectorAll("#modeToggle .mode-btn").forEach((btn) => {
           btn.classList.toggle("active", btn.dataset.mode === buyMode);
@@ -3198,13 +3231,18 @@
             r.buildSig?.displayScore != null
               ? r.buildSig.displayScore
               : r.buildSig?.deployScore;
+          /* 颜色跟操作建议（含超配观望/建议减仓/溢价硬停）对齐，不只按裸分位带 */
+          const trim = suggestTrimAction(r, r.buildSig);
+          const adviceAction = trim?.action || r.buildSig?.action;
           const scoreCls =
-            score != null && Number.isFinite(score)
+            actionToScoreCls(adviceAction) ||
+            (score != null && Number.isFinite(score)
               ? scoreMetaCls(score, r.method)
-              : "";
-          const scoreHtml = scoreCls
-            ? `<span class="ratio-badge ${scoreCls}">${Number(score).toFixed(1)}%</span>`
-            : `<span class="money">—</span>`;
+              : "");
+          const scoreHtml =
+            score != null && Number.isFinite(score)
+              ? `<span class="ratio-badge ${scoreCls}">${Number(score).toFixed(1)}%</span>`
+              : `<span class="money">—</span>`;
           /* 估值延后：金额与手数都跟分位同色，和绿色「待补」区分 */
           const valDefer = r.suggest?.valDefer ?? 0;
           const deferLots =
@@ -3761,11 +3799,11 @@
 
         if (prem?.pct != null) {
           const { pct, isQdii: qdiiFlag } = prem;
-          if (qdiiFlag && pct > 5) {
+          if (qdiiFlag && pct > VAL.qdiiPremStop) {
             Object.assign(r, forceSignal("暂停买入"));
             r.hardStop = true;
             r.detail = (r.detail || "") + ` · 溢价${pct.toFixed(1)}%过高`;
-          } else if (qdiiFlag && pct > 3) {
+          } else if (qdiiFlag && pct > VAL.qdiiPremWarn) {
             if (r.level === "buy" || r.level === "ok") {
               Object.assign(r, forceSignal("谨慎买入"));
             }
@@ -4005,7 +4043,30 @@
         );
       }
 
-      /* 分位颜色：优先用品种 bands，与买入标签阈值对齐 */
+      /* 操作建议 → 分位徽章色（与说明栏 tag 一一对应） */
+      function actionToScoreCls(action) {
+        switch (action) {
+          case "积极买入":
+            return "score-s5";
+          case "正常买入":
+            return "score-s4";
+          case "可以买入":
+            return "score-s3";
+          case "谨慎买入":
+          case "减半买入":
+            return "score-s2";
+          case "暂停买入":
+            return "score-s1";
+          case "建议减仓":
+            return "score-trim";
+          case "超配观望":
+            return "score-over";
+          default:
+            return "";
+        }
+      }
+
+      /* 分位颜色回退：无操作建议时按品种 bands */
       function scoreMetaCls(score, method) {
         if (score == null || !Number.isFinite(score)) return "";
         const b = (method && VAL.bands[method]) || [
@@ -4441,9 +4502,6 @@
           .filter((r) => r.needFill > 1)
           .sort((a, b) => b.needFill - a.needFill)
           .map((r) => r.name);
-        const stopList = rows
-          .filter((r) => r.val?.level === "stop" && r.gap > 1)
-          .map((r) => r.name);
 
         document.getElementById("sTotal").textContent =
           newCash > 0 ? "¥" + fmt(newCash) : "—";
@@ -4484,45 +4542,14 @@
             .join("、");
           setBanner("warn", `⚠ 部分不足1手（${bad}）`);
         } else if (newCash > 0) {
-          let extra = "";
-          if (buyMode === "build") {
-            const sug = rows.reduce((s, r) => s + (r.suggest?.yuan || 0), 0);
-            const valDef = rows.reduce(
-              (s, r) => s + (r.suggest?.valDefer || 0),
-              0,
-            );
-            const capped = rows.some((r) => r.suggest?.cashCapped);
-            extra = ` · 本次建议买入 ¥${fmt(sug)}`;
-            if (capped) extra += "（已按剩余额度收紧）";
-            if (valDef >= 1) extra += ` · 估值延后 ¥${fmt(valDef)}`;
-            if (trimList.length)
-              extra += ` · 建议减仓：${trimList.slice(0, 3).join("/")}`;
-          } else {
-            if (underList.length)
-              extra = ` · 欠配：${underList.slice(0, 3).join("/")}`;
-            if (trimList.length)
-              extra += ` · 建议减仓：${trimList.slice(0, 3).join("/")}`;
-            else if (overList.length)
-              extra += ` · 超配：${overList.slice(0, 3).join("/")}`;
-            if (stopList.length) extra += ` · 高估暂停：${stopList.join("/")}`;
-          }
-          setBanner(
-            "ok",
-            `✓ 剩余未分配 ¥${fmt(Math.max(0, left ?? 0))}${extra}`,
-          );
+          /* 原「剩余未分配」位置：改展示覆盖规则；建议/延后仍在下方估值条 */
+          showOverlayRulesBanner();
         } else if (trimList.length) {
           setBanner("warn", `⚠ ${trimList.join("/")} 超配且偏贵，建议减仓`);
         } else if (overList.length && !underList.length) {
           setBanner("warn", `⚠ ${overList.join("/")} 超配，暂无需加仓`);
         } else {
-          let extra = "";
-          if (underList.length)
-            extra = ` · 欠配：${underList.slice(0, 3).join("/")}`;
-          if (trimList.length)
-            extra += ` · 建议减仓：${trimList.slice(0, 3).join("/")}`;
-          else if (overList.length)
-            extra += ` · 超配：${overList.slice(0, 3).join("/")}`;
-          setBanner("ok", `✓ 配比均衡${extra}`);
+          showOverlayRulesBanner();
         }
       }
 

@@ -31,6 +31,7 @@ VAL = dict(
     warnCap=0.5,
     upgradePullMax=10,
     # 激进分目标：纳指~40 · 标普~42 · 红利~47 · 国债~53
+    # 标普暂停档 96→92；部署/warnCap/spPePauseGate 不变，激进分仍≈42
     deploy=dict(
         ndx=dict(cheap=34, rich=92, warnCap=0.55, warnScoreCap=55, pullMax=14),
         sp500=dict(cheap=22, rich=99, warnCap=0.38, warnScoreCap=55, pullMax=10),
@@ -39,7 +40,7 @@ VAL = dict(
     ),
     bands=dict(
         ndx=(28, 55, 78, 90),
-        sp500=(30, 58, 72, 96),
+        sp500=(30, 58, 72, 92),
         dividend=(22, 44, 66, 86),
     ),
     bondAvgHigh=62,
@@ -71,6 +72,8 @@ VAL = dict(
     spPePauseGate=95,
     # 启发预期偏低：PE分位>75 降谨慎（70 过勤；75→标普激进分约42）
     spPeWarnGate=75,
+    qdiiPremStop=5,
+    qdiiPremWarn=3,
     divPeCheap=8,
     divYldFloor=4.8,
     divYldStrong=5.5,
@@ -445,12 +448,12 @@ def apply_overlays(sig: dict, code: str, premium_pct: float | None = None, usd_p
     r = dict(sig)
     is_qdii = code in QDII_CODES
     if is_qdii and premium_pct is not None:
-        if premium_pct > 5:
+        if premium_pct > VAL["qdiiPremStop"]:
             r = force("暂停买入")
             r["hardStop"] = True
             r["score"] = sig.get("score")
             r["zone"] = sig.get("zone")
-        elif premium_pct > 3 and r.get("level") in ("buy", "ok"):
+        elif premium_pct > VAL["qdiiPremWarn"] and r.get("level") in ("buy", "ok"):
             r = force("谨慎买入")
             r["score"] = sig.get("score")
             r["zone"] = sig.get("zone")
