@@ -1,11 +1,11 @@
-@echo off
+﻿@echo off
 chcp 65001 >nul
 setlocal EnableExtensions EnableDelayedExpansion
 
-REM magic 一键启动/停止（Windows）
-REM   双击 magic.cmd  或  magic.bat
-REM   后台运行：magic.bat bg
-REM   仅停止：magic.bat stop
+REM magic start/stop for Windows
+REM   Double-click magic.cmd or magic.bat
+REM   Background: magic.bat bg
+REM   Stop only:  magic.bat stop
 
 cd /d "%~dp0"
 set "ROOT=%CD%"
@@ -19,7 +19,7 @@ set "WEB_LOG=%ROOT%\.web.log"
 
 call :find_python
 if errorlevel 1 (
-  echo [X] 未找到 Python，请先安装 Python 3 并勾选 "Add Python to PATH"
+  echo [X] 未找到 Python，请先安装 Python 3 并勾选 Add Python to PATH
   pause
   exit /b 1
 )
@@ -31,7 +31,8 @@ if /i "%CMD%"=="stop" goto :do_stop
 if /i "%CMD%"=="bg" goto :do_bg
 if /i "%CMD%"=="start" goto :do_start
 
-echo 用法: %~nx0 [start^|bg^|stop]  （默认 start）
+echo 用法: %~nx0 [start^|bg^|stop]  默认 start
+pause
 exit /b 1
 
 :do_stop
@@ -57,18 +58,16 @@ call :start_web
 start "" "%APP_URL%"
 call :print_phone_hint
 echo.
-echo [OK] 电脑已打开（估值应显示 ·蛋卷，否则点刷新）
-echo [!] 按任意键会停止服务，手机也将无法访问
+echo [OK] 电脑已打开，估值应显示 ·蛋卷，否则点刷新
+echo [WARN] 按任意键会停止服务，手机也将无法访问
 echo.
 pause
 call :stop_services
 goto :eof
 
 :find_python
-REM 优先 python，其次 Windows 启动器 py，再次 python3
 set "PY="
 where python >nul 2>&1 && (
-  REM 排除 Windows Store 假 python（只是打开商店的 stub）
   for /f "delims=" %%i in ('where python') do (
     echo %%i | findstr /I "WindowsApps" >nul || (
       set "PY=%%i"
@@ -111,7 +110,7 @@ exit /b 0
 :start_proxy
 call :port_in_use %PROXY_PORT%
 if not errorlevel 1 (
-  echo [OK] 蛋卷代理已在运行 (:%PROXY_PORT%)
+  echo [OK] 蛋卷代理已在运行 :%PROXY_PORT%
   exit /b 0
 )
 echo [-] 启动蛋卷代理...
@@ -148,10 +147,10 @@ exit /b 0
 :start_web
 call :port_in_use %WEB_PORT%
 if not errorlevel 1 (
-  echo [OK] 本地网页已在运行 (:%WEB_PORT%)
+  echo [OK] 本地网页已在运行 :%WEB_PORT%
   exit /b 0
 )
-echo [-] 启动本地网页（局域网可访问）...
+echo [-] 启动本地网页，局域网可访问...
 if /i "%PY%"=="py" (
   start /b "" cmd /c "py -3 -m http.server %WEB_PORT% --bind 0.0.0.0 >>"%WEB_LOG%" 2>&1"
 ) else (

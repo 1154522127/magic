@@ -3148,8 +3148,20 @@
         return `<span class="gap-pair">${amountHtml}${lotsHtml}</span>`;
       }
 
+      /* 操作建议 → 待补金额/手数色（score-s* / tag-s*） */
+      function adviceTone(r) {
+        const trim = suggestTrimAction(r, r.buildSig || r.val);
+        const action = trim?.action || r.buildSig?.action || r.val?.action;
+        const scoreCls = actionToScoreCls(action);
+        if (!scoreCls) return { amtCls: "need", lotTone: false };
+        return {
+          amtCls: scoreCls,
+          lotTone: scoreCls.replace(/^score-/, ""),
+        };
+      }
+
       /* 不足1手时：补配=满一手还差的金额，股数=还差几股 */
-      function partialLotNeedHtml(price, budget, money) {
+      function partialLotNeedHtml(price, budget, money, lotTone) {
         if (!(price > 0) || !(budget >= price)) return null;
         const shares = Math.floor(budget / price);
         if (shares < 1 || shares >= LOT) return null;
@@ -3158,9 +3170,18 @@
         const shortYuan = Math.max(0, lotYuan - haveYuan);
         const shortShares = LOT - shares;
         if (!(shortYuan >= 0.01) || shortShares < 1) return null;
+        const tone = lotTone == null ? false : lotTone;
+        const amtCls =
+          tone === false || tone === "s4"
+            ? "need"
+            : typeof tone === "string"
+              ? /^s[1-5]$/.test(tone) || tone === "trim" || tone === "over"
+                ? `score-${tone}`
+                : "need"
+              : "need";
         return gapPairHtml(
-          `<span class="gap-val need">${money(shortYuan)}</span>`,
-          sharesTag(shortShares, false),
+          `<span class="gap-val ${amtCls}">${money(shortYuan)}</span>`,
+          sharesTag(shortShares, tone),
         );
       }
 
@@ -3174,13 +3195,21 @@
 
         let needHtml;
         if (r.gap < -1) {
-          /* 超配：偏贵→建议减仓橙；否则→超配观望紫 */
-          const trim = suggestTrimAction(r, r.buildSig || r.val);
-          const isTrim = trim?.level === "trim";
-          needHtml = gapPairHtml(
-            `<span class="gap-val over${isTrim ? " trim" : ""}">${money(Math.abs(r.gap))}</span>`,
-            `<span class="tag ${isTrim ? "tag-trim" : "tag-over"}">超配</span>`,
-          );
+          if (buyMode === "dca") {
+            /* 总额配仓：超配金额/标签跟上面待补一样用绿色 */
+            needHtml = gapPairHtml(
+              `<span class="gap-val need">${money(Math.abs(r.gap))}</span>`,
+              `<span class="tag tag-s4">超配</span>`,
+            );
+          } else {
+            /* 估值配仓：偏贵→建议减仓橙；否则→超配观望紫 */
+            const trim = suggestTrimAction(r, r.buildSig || r.val);
+            const isTrim = trim?.level === "trim";
+            needHtml = gapPairHtml(
+              `<span class="gap-val over${isTrim ? " trim" : ""}">${money(Math.abs(r.gap))}</span>`,
+              `<span class="tag ${isTrim ? "tag-trim" : "tag-over"}">超配</span>`,
+            );
+          }
         } else if (buyMode === "build") {
           const factor = r.buildSig?.factor ?? 0;
           const valDefer = r.suggest?.valDefer || 0;
@@ -3198,7 +3227,13 @@
               : r.minLot > 0 && nowFill > 0
                 ? Math.floor(nowFill / r.minLot)
                 : 0;
-          const partialHtml = partialLotNeedHtml(r.price, budget, money);
+          const { amtCls, lotTone } = adviceTone(r);
+          const partialHtml = partialLotNeedHtml(
+            r.price,
+            budget,
+            money,
+            lotTone,
+          );
           /* 系数=0：战略仍欠配，但全部延后；色跟「暂停买入」 */
           if (factor <= 0 && (r.needFill || 0) >= 1) {
             needHtml = gapPairHtml(
@@ -3207,15 +3242,15 @@
             );
           } else if (nowLots >= 1 && nowFill >= 1) {
             needHtml = gapPairHtml(
-              `<span class="gap-val need">${money(nowFill)}</span>`,
-              lotsTag(nowLots, false),
+              `<span class="gap-val ${amtCls}">${money(nowFill)}</span>`,
+              lotsTag(nowLots, lotTone),
             );
           } else if (partialHtml) {
             needHtml = partialHtml;
           } else {
             needHtml = gapPairHtml(
-              `<span class="gap-val ok">${money(0)}</span>`,
-              lotsTag(0, false),
+              `<span class="gap-val ${amtCls}">${money(0)}</span>`,
+              lotsTag(0, lotTone),
             );
           }
         } else if (r.needFill >= 1) {
@@ -3330,8 +3365,10 @@
         const heldPct = r.cost > 0 ? r.costBasis : r.marketValue;
         const targetHtml = `<span class="ratio-badge" style="opacity:.65">${r.targetPct.toFixed(0)}%</span>`;
         /* .sub 固定两行高；单徽章时由 CSS 垂直居中，与估值配仓「延后」同高 */
+        /* 超配时实际占比跟待补列同用绿色（与上面待补一致） */
+        const actualCls = r.gap < -1 ? "score-s4" : "";
         if (getTotalAmount() > 0 && heldPct > 0) {
-          pctEl.innerHTML = `<span class="ratio-badge">${r.actualPct.toFixed(1)}%</span><br><span class="sub">${targetHtml}</span>`;
+          pctEl.innerHTML = `<span class="ratio-badge ${actualCls}">${r.actualPct.toFixed(1)}%</span><br><span class="sub">${targetHtml}</span>`;
         } else {
           pctEl.innerHTML = `<span class="money">—</span><br><span class="sub">${targetHtml}</span>`;
         }

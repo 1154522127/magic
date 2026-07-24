@@ -1,4 +1,11 @@
-@echo off
-REM 双击本文件即可启动（Windows 版，对应 magic.command）
+﻿@echo off
+chcp 65001 >nul
+REM Double-click to start magic on Windows
 cd /d "%~dp0"
-call "%~dp0magic.bat" start
+if not exist "%~dp0magic.bat" (
+  echo [X] 找不到 magic.bat，请与 magic.cmd 放在同一目录
+  pause
+  exit /b 1
+)
+call "%~dp0magic.bat" %*
+if errorlevel 1 pause
