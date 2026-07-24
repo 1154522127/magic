@@ -988,6 +988,7 @@
           width: 100%;
           max-width: 100%;
           overflow-x: hidden;
+          overflow-y: hidden;
           padding-left: calc(10px + env(safe-area-inset-left));
           padding-right: calc(10px + env(safe-area-inset-right));
         }
@@ -1528,14 +1529,6 @@
           <div class="lot-foot" id="sPosCostFoot" hidden>
             <span class="lot-foot-lbl">合计</span>
             <span class="lot-foot-amt" id="sPosCostFootAmt">—</span>
-          </div>
-        </div>
-        <div class="lot-wrap">
-          <div class="lot-title">最低仓位配比</div>
-          <div class="summary-bar lot-bar" id="sLotBar">—</div>
-          <div class="lot-foot" id="sLotFoot" hidden>
-            <span class="lot-foot-lbl">合计</span>
-            <span class="lot-foot-amt" id="sLotFootAmt">—</span>
           </div>
         </div>
       </div>
@@ -4288,19 +4281,6 @@
         }
       }
 
-      function calcOneSetPrices(rows) {
-        const setTotal = Math.max(0, ...rows.map((r) => r.minTotal));
-        if (setTotal <= 0) return { setTotal: 0, items: [], actualTotal: 0 };
-        const items = rows.map((r) => {
-          const alloc = setTotal * r.ratio;
-          const buy =
-            r.minLot > 0 ? Math.floor(alloc / r.minLot) * r.minLot : 0;
-          return { code: r.code, name: r.name, buy, price: r.price };
-        });
-        const actualTotal = items.reduce((s, i) => s + i.buy, 0);
-        return { setTotal, items, actualTotal };
-      }
-
       function renderPositionCost(rows) {
         const barEl = document.getElementById("sOneLotCostBar");
         const footEl = document.getElementById("sPosCostFoot");
@@ -4360,25 +4340,6 @@
       function renderLotPrices(rows) {
         renderOneLotMarket(rows);
         renderPositionCost(rows);
-        const barEl = document.getElementById("sLotBar");
-        const footEl = document.getElementById("sLotFoot");
-        const footAmtEl = document.getElementById("sLotFootAmt");
-        const { setTotal, items, actualTotal } = calcOneSetPrices(rows);
-        if (setTotal <= 0) {
-          barEl.textContent = "—";
-          footAmtEl.textContent = "—";
-          footEl.hidden = true;
-          return setTotal;
-        }
-        footAmtEl.textContent = "¥" + fmt(actualTotal);
-        footEl.hidden = false;
-        barEl.innerHTML = items
-          .map(
-            (i) =>
-              `<div class="stat"><div class="lbl">${i.name}</div><div class="val">¥${fmt(i.buy)}</div></div>`,
-          )
-          .join("");
-        return setTotal;
       }
 
       function calculate() {
@@ -4499,8 +4460,7 @@
         const hasDayPnl = holdings.some(
           (r) => r.shares > 0 && getPrevClose(r.code) > 0,
         );
-        const oneLotEach = renderLotPrices(rows);
-        const minAll = oneLotEach;
+        renderLotPrices(rows);
         const allOk = newCash <= 0 || rows.every((r) => r.lots >= 1);
         const overList = rows.filter((r) => r.gap < -1).map((r) => r.name);
         const trimList = rows
@@ -4541,11 +4501,6 @@
 
         if (newCash <= 0 && !hasHoldings) {
           setBanner("warn", "请填写持仓或投入总额金额");
-        } else if (newCash > 0 && newCash < minAll) {
-          setBanner(
-            "warn",
-            `⚠ 总额偏低：至少需 ¥${fmt(minAll)}（还差 ¥${fmt(minAll - newCash)}）`,
-          );
         } else if (newCash > 0 && !allOk) {
           const bad = rows
             .filter((r) => r.lots < 1)
