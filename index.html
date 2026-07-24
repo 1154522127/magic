@@ -862,16 +862,6 @@
         gap: 6px 12px;
         padding: 0;
       }
-      .legend-guide-head .legend-title {
-        font-size: 0.74rem;
-        font-weight: 600;
-        letter-spacing: 0.02em;
-        color: var(--muted);
-        padding: 0;
-        border-radius: 0;
-        background: transparent;
-        flex-shrink: 0;
-      }
       .legend-signals {
         display: flex;
         align-items: center;
@@ -987,13 +977,17 @@
       @media (max-width: 768px) {
         html,
         body {
-          overflow: auto;
+          overflow-x: hidden;
+          overflow-y: auto;
           height: auto;
           min-height: 100%;
         }
         .app {
           height: auto;
           min-height: 100dvh;
+          width: 100%;
+          max-width: 100%;
+          overflow-x: hidden;
           padding-left: calc(10px + env(safe-area-inset-left));
           padding-right: calc(10px + env(safe-area-inset-right));
         }
@@ -1128,13 +1122,13 @@
           overflow: hidden;
         }
         .stat .lbl {
-          font-size: 0.55rem;
+          font-size: 0.62rem;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
         .stat .val {
-          font-size: 0.68rem;
+          font-size: 0.76rem;
           letter-spacing: -0.02em;
           white-space: nowrap;
           overflow: hidden;
@@ -1143,7 +1137,7 @@
         }
         .lot-title {
           margin-bottom: 3px;
-          font-size: 0.6rem;
+          font-size: 0.68rem;
         }
         .lot-wrap {
           display: block;
@@ -1154,7 +1148,7 @@
           gap: 4px;
         }
         .lot-bar .stat .val {
-          font-size: 0.66rem;
+          font-size: 0.74rem;
         }
         .lot-foot {
           margin-top: 2px;
@@ -1166,17 +1160,17 @@
           margin-top: -1.15em;
         }
         .lot-foot-lbl {
-          font-size: 0.55rem;
+          font-size: 0.62rem;
           letter-spacing: 0.02em;
         }
         .lot-foot-amt {
-          font-size: 0.66rem;
+          font-size: 0.74rem;
           font-weight: 700;
         }
 
         /* 固定两行高度，切换总额/估值配仓时底部不跟着抖 */
         .banner {
-          font-size: 0.75rem;
+          font-size: 0.8rem;
           white-space: normal;
           line-height: 1.35;
           height: calc(1em * 1.35 * 2 + 10px + 2px);
@@ -1275,38 +1269,33 @@
           align-items: center;
           gap: 5px;
           padding: 7px 10px 8px;
-        }
-        .legend-guide-head {
-          flex-direction: row;
-          flex-wrap: nowrap;
-          align-items: center;
-          justify-content: center;
-          gap: 6px;
-          max-width: 100%;
-        }
-        .legend-guide-head .legend-title {
-          font-size: 0.6rem;
-          flex-shrink: 0;
-        }
-        .legend-signals {
-          justify-content: center;
-          flex-wrap: nowrap;
-          gap: 0 5px;
-          overflow-x: auto;
-          -webkit-overflow-scrolling: touch;
-          scrollbar-width: none;
           max-width: 100%;
           min-width: 0;
         }
-        .legend-signals::-webkit-scrollbar {
-          display: none;
+        .legend-guide-head {
+          flex-direction: row;
+          flex-wrap: wrap;
+          align-items: center;
+          justify-content: center;
+          gap: 4px 6px;
+          width: 100%;
+          max-width: 100%;
+          min-width: 0;
+        }
+        .legend-signals {
+          justify-content: center;
+          flex-wrap: wrap;
+          gap: 3px 6px;
+          overflow: visible;
+          max-width: 100%;
+          min-width: 0;
         }
         .legend-signals .tag {
-          font-size: 0.52rem;
+          font-size: 0.58rem;
           flex-shrink: 0;
         }
         .band-row .tag {
-          font-size: 0.58rem;
+          font-size: 0.64rem;
         }
         .legend-signals .tag::before {
           width: 3px;
@@ -1317,17 +1306,21 @@
           flex-direction: column;
           align-items: center;
           gap: 2px;
-          width: fit-content;
+          width: 100%;
           max-width: 100%;
+          min-width: 0;
           margin: 0 auto;
+          overflow: hidden;
         }
         .band-row {
           justify-content: center;
+          flex-wrap: wrap;
           gap: 0;
+          max-width: 100%;
         }
         .band-row .legend-asset {
           min-width: 0;
-          font-size: 0.58rem;
+          font-size: 0.64rem;
           margin-right: 0;
           text-align: center;
         }
@@ -1453,7 +1446,6 @@
       <div class="legend-stack">
         <div class="legend-box legend-guide" id="signalLegend">
           <div class="legend-guide-head">
-            <span class="legend-title">说明</span>
             <div class="legend-signals">
               <span class="tag tag-s5">积极买入</span>
               <span class="tag tag-s4">正常买入</span>
