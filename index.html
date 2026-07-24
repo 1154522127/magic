@@ -60,8 +60,8 @@
         padding: 8px 12px calc(10px + env(safe-area-inset-bottom));
         padding-top: calc(8px + env(safe-area-inset-top));
         display: grid;
-        /* 三段都按内容高度；align-content:start 避免中间被撑出空白 */
-        grid-template-rows: auto auto auto;
+        /* 顶栏 / 表格 / 图例 / 底部：按内容高度，避免中间被撑出空白 */
+        grid-template-rows: auto auto auto auto;
         align-content: start;
         gap: 6px;
         overflow-y: auto;
@@ -777,32 +777,32 @@
         opacity: 0.7;
       }
       .tag-s5 {
-        background: rgba(34, 197, 94, 0.24);
-        color: var(--success);
+        background: rgba(132, 204, 22, 0.26);
+        color: #a3e635;
       }
       .tag-s4 {
-        background: rgba(34, 197, 94, 0.15);
+        background: rgba(34, 197, 94, 0.18);
         color: var(--success);
       }
       .tag-s3 {
-        background: rgba(59, 130, 246, 0.15);
-        color: var(--info);
+        background: rgba(59, 130, 246, 0.26);
+        color: #3b82f6;
       }
       .tag-s2 {
-        background: rgba(245, 158, 11, 0.15);
+        background: rgba(245, 158, 11, 0.22);
         color: var(--warning);
       }
       .tag-s1 {
-        background: rgba(239, 68, 68, 0.18);
+        background: rgba(239, 68, 68, 0.22);
         color: var(--danger);
       }
       .tag-trim {
-        background: rgba(239, 68, 68, 0.28);
-        color: var(--danger);
+        background: rgba(249, 115, 22, 0.24);
+        color: #fb923c;
       }
       .tag-over {
-        background: rgba(245, 158, 11, 0.2);
-        color: var(--warning);
+        background: rgba(168, 85, 247, 0.22);
+        color: #c084fc;
       }
       .tag-na {
         background: rgba(139, 156, 179, 0.12);
@@ -821,26 +821,110 @@
         color: var(--muted);
       }
 
-      .signal-legend {
+      .legend-stack {
+        width: 100%;
+        flex-shrink: 0;
+      }
+      .legend-box {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+      }
+      .legend-guide {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 12px 9px;
+      }
+      .legend-guide-head {
         display: flex;
         align-items: center;
         justify-content: center;
         flex-wrap: wrap;
+        gap: 6px 12px;
+        padding: 0;
+      }
+      .legend-guide-head .legend-title {
+        font-size: 0.65rem;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+        color: var(--muted);
+        padding: 0;
+        border-radius: 0;
+        background: transparent;
         flex-shrink: 0;
-        gap: 5px 10px;
-        padding: 5px 10px;
-        border-top: 1px solid var(--border);
       }
-      .signal-legend .legend-title {
+      .legend-signals {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-wrap: wrap;
+        gap: 2px 10px;
+      }
+      /* 图例：色点 + 文字，贴近底部 lot-title / 主流行情页 */
+      .legend-signals .tag,
+      .band-row .tag {
+        background: transparent;
+        padding: 0;
+        border-radius: 0;
         font-size: 0.62rem;
-        font-weight: 700;
-        color: var(--muted);
-        margin-right: 2px;
+        font-weight: 600;
+        line-height: 1.35;
+        gap: 4px;
       }
-      .signal-legend .legend-hint {
-        font-size: 0.58rem;
-        color: var(--muted);
+      .band-row .tag {
+        gap: 0;
+      }
+      .legend-signals .tag::before {
+        content: "";
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        background: currentColor;
         opacity: 0.85;
+        flex-shrink: 0;
+      }
+      .legend-bands {
+        display: grid;
+        grid-template-columns: max-content max-content;
+        gap: 3px 28px;
+        padding: 0;
+        width: max-content;
+        max-width: 100%;
+        margin: 0 auto;
+      }
+      .band-row {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        flex-wrap: wrap;
+        gap: 0;
+        min-width: 0;
+      }
+      .band-row .legend-asset {
+        font-size: 0.62rem;
+        font-weight: 600;
+        color: var(--muted);
+        min-width: 0;
+        text-align: left;
+        letter-spacing: 0;
+        margin-right: 0;
+      }
+      .band-row .legend-asset::after {
+        content: "：";
+      }
+      .band-row .tag + .tag::before {
+        content: "";
+        width: 2px;
+        height: 2px;
+        border-radius: 50%;
+        background: var(--muted);
+        opacity: 0.55;
+        margin: 0 4px;
+        align-self: center;
+        flex-shrink: 0;
       }
 
       .prem {
@@ -1149,42 +1233,65 @@
         .table-scroll {
           -webkit-overflow-scrolling: touch;
         }
-        .signal-legend {
-          flex-wrap: wrap;
+        .legend-guide {
+          align-items: center;
+          gap: 5px;
+          padding: 7px 10px 8px;
+        }
+        .legend-guide-head {
+          flex-direction: row;
+          flex-wrap: nowrap;
+          align-items: center;
           justify-content: center;
-          align-items: baseline;
-          gap: 2px 0;
-          padding: 7px 10px;
-          overflow-x: visible;
-          width: 100%;
-          box-sizing: border-box;
+          gap: 6px;
+          max-width: 100%;
         }
-        .signal-legend .legend-title {
+        .legend-guide-head .legend-title {
+          font-size: 0.6rem;
           flex-shrink: 0;
-          margin-right: 0;
-          font-size: 0.58rem;
-          font-weight: 700;
         }
-        .signal-legend .legend-title::after {
-          content: "：";
+        .legend-signals {
+          justify-content: center;
+          flex-wrap: nowrap;
+          gap: 0 5px;
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+          scrollbar-width: none;
+          max-width: 100%;
+          min-width: 0;
         }
-        .signal-legend .legend-hint {
+        .legend-signals::-webkit-scrollbar {
           display: none;
         }
-        /* 手机端图例：去胶囊底，文字 + 间隔点，固定在表外不随左右滚动 */
-        .signal-legend .tag {
-          background: transparent !important;
-          padding: 0;
-          border-radius: 0;
-          font-size: 0.58rem;
-          font-weight: 600;
-          line-height: 1.35;
+        .legend-signals .tag {
+          font-size: 0.52rem;
+          flex-shrink: 0;
         }
-        .signal-legend .tag + .tag::before {
-          content: " · ";
-          color: var(--muted);
-          font-weight: 400;
-          opacity: 0.55;
+        .band-row .tag {
+          font-size: 0.58rem;
+        }
+        .legend-signals .tag::before {
+          width: 3px;
+          height: 3px;
+        }
+        .legend-bands {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2px;
+          width: fit-content;
+          max-width: 100%;
+          margin: 0 auto;
+        }
+        .band-row {
+          justify-content: center;
+          gap: 0;
+        }
+        .band-row .legend-asset {
+          min-width: 0;
+          font-size: 0.58rem;
+          margin-right: 0;
+          text-align: center;
         }
         .price-val {
           font-size: 0.82rem;
@@ -1306,15 +1413,56 @@
             <tbody id="mainBody"></tbody>
           </table>
         </div>
-        <div class="signal-legend" id="signalLegend">
-          <span class="legend-title">操作建议</span>
-          <span class="tag tag-s5">积极买入</span>
-          <span class="tag tag-s4">正常买入</span>
-          <span class="tag tag-s3">可以买入</span>
-          <span class="tag tag-s2">谨慎买入</span>
-          <span class="tag tag-s1">暂停买入</span>
-          <span class="tag tag-trim">建议减仓</span>
-          <span class="tag tag-over">超配观望</span>
+      </div>
+
+      <div class="legend-stack">
+        <div class="legend-box legend-guide" id="signalLegend">
+          <div class="legend-guide-head">
+            <span class="legend-title">说明</span>
+            <div class="legend-signals">
+              <span class="tag tag-s5">积极买入</span>
+              <span class="tag tag-s4">正常买入</span>
+              <span class="tag tag-s3">可以买入</span>
+              <span class="tag tag-s2">谨慎买入</span>
+              <span class="tag tag-s1">暂停买入</span>
+              <span class="tag tag-trim">建议减仓</span>
+              <span class="tag tag-over">超配观望</span>
+            </div>
+          </div>
+          <div class="legend-bands" id="bandLegend">
+            <div class="band-row">
+              <span class="legend-asset">纳指</span>
+              <span class="tag tag-s5">≤28%</span>
+              <span class="tag tag-s4">&lt;55%</span>
+              <span class="tag tag-s3">&lt;78%</span>
+              <span class="tag tag-s2">78–90%</span>
+              <span class="tag tag-s1">≥90%</span>
+            </div>
+            <div class="band-row">
+              <span class="legend-asset">标普</span>
+              <span class="tag tag-s5">≤30%</span>
+              <span class="tag tag-s4">&lt;58%</span>
+              <span class="tag tag-s3">&lt;72%</span>
+              <span class="tag tag-s2">72–96%</span>
+              <span class="tag tag-s1">≥96%</span>
+            </div>
+            <div class="band-row">
+              <span class="legend-asset">红利</span>
+              <span class="tag tag-s5">≤22%</span>
+              <span class="tag tag-s4">&lt;44%</span>
+              <span class="tag tag-s3">&lt;66%</span>
+              <span class="tag tag-s2">66–86%</span>
+              <span class="tag tag-s1">≥86%</span>
+            </div>
+            <div class="band-row">
+              <span class="legend-asset">国债</span>
+              <span class="tag tag-s5">≤38%·Y≥2.4</span>
+              <span class="tag tag-s4">38–72%</span>
+              <span class="tag tag-s3">≤38%</span>
+              <span class="tag tag-s2">≥72%</span>
+              <span class="tag tag-s1">≥90%</span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -2918,7 +3066,9 @@
             ? "tag tag-warn"
             : tone === "defer" || tone === "muted"
               ? "tag tag-defer"
-              : "tag tag-ok";
+              : typeof tone === "string" && /^s[1-5]$/.test(tone)
+                ? `tag tag-${tone}`
+                : "tag tag-ok";
         return `<span class="${cls}">${n}手</span>`;
       }
 
@@ -3048,30 +3198,37 @@
             r.buildSig?.displayScore != null
               ? r.buildSig.displayScore
               : r.buildSig?.deployScore;
-          const scoreHtml =
+          const scoreCls =
             score != null && Number.isFinite(score)
-              ? `<span class="ratio-badge ${scoreMetaCls(score, r.method)}">${Number(score).toFixed(1)}%</span>`
-              : `<span class="money">—</span>`;
-          /* 估值延后：不含手数取整零头；样式与待补一致 */
+              ? scoreMetaCls(score, r.method)
+              : "";
+          const scoreHtml = scoreCls
+            ? `<span class="ratio-badge ${scoreCls}">${Number(score).toFixed(1)}%</span>`
+            : `<span class="money">—</span>`;
+          /* 估值延后：金额与手数都跟分位同色，和绿色「待补」区分 */
           const valDefer = r.suggest?.valDefer ?? 0;
           const deferLots =
             r.minLot > 0 && valDefer > 0 ? Math.floor(valDefer / r.minLot) : 0;
+          const deferAmtCls = scoreCls || "defer";
+          const deferLotTone = scoreCls
+            ? scoreCls.replace("score-", "")
+            : "defer";
           let deferHtml;
           if (valDefer >= 1) {
             deferHtml = gapPairHtml(
-              `<span class="gap-val need">${money(valDefer)}</span>`,
-              lotsTag(deferLots, false),
+              `<span class="gap-val ${deferAmtCls}">${money(valDefer)}</span>`,
+              lotsTag(deferLots, deferLotTone),
             );
           } else if ((r.needFill || 0) >= 1 && (r.buildSig?.factor ?? 1) <= 0) {
             const n = r.minLot > 0 ? Math.floor(r.needFill / r.minLot) : 0;
             deferHtml = gapPairHtml(
-              `<span class="gap-val need">${money(r.needFill)}</span>`,
-              lotsTag(n, false),
+              `<span class="gap-val ${deferAmtCls}">${money(r.needFill)}</span>`,
+              lotsTag(n, deferLotTone),
             );
           } else {
             deferHtml = gapPairHtml(
               `<span class="gap-val ok">${money(0)}</span>`,
-              lotsTag(0, false),
+              lotsTag(0, "defer"),
             );
           }
           pctEl.innerHTML = `${scoreHtml}<br><span class="sub">${deferHtml}</span>`;
