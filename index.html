@@ -867,10 +867,13 @@
         align-items: center;
         justify-content: center;
         flex-wrap: wrap;
-        gap: 2px 10px;
+        gap: 4px 6px;
       }
-      /* 图例：色点 + 文字，贴近底部 lot-title / 主流行情页 */
-      .legend-signals .tag,
+      /* 操作建议图例：与表格「操作建议」列同款标签 */
+      .legend-signals .tag {
+        flex-shrink: 0;
+      }
+      /* 分位区间：色点分隔的紧凑文字 */
       .band-row .tag {
         background: transparent;
         padding: 0;
@@ -878,19 +881,7 @@
         font-size: 0.72rem;
         font-weight: 600;
         line-height: 1.35;
-        gap: 4px;
-      }
-      .band-row .tag {
         gap: 0;
-      }
-      .legend-signals .tag::before {
-        content: "";
-        width: 5px;
-        height: 5px;
-        border-radius: 50%;
-        background: currentColor;
-        opacity: 0.85;
-        flex-shrink: 0;
       }
       .legend-bands {
         display: grid;
@@ -984,7 +975,7 @@
         }
         .app {
           height: auto;
-          min-height: 100dvh;
+          min-height: calc(100dvh - 100px);
           width: 100%;
           max-width: 100%;
           overflow-x: hidden;
@@ -1284,23 +1275,26 @@
           min-width: 0;
         }
         .legend-signals {
-          justify-content: center;
-          flex-wrap: wrap;
-          gap: 3px 6px;
-          overflow: visible;
+          justify-content: flex-start;
+          flex-wrap: nowrap;
+          gap: 4px;
+          overflow-x: auto;
+          overflow-y: hidden;
+          -webkit-overflow-scrolling: touch;
           max-width: 100%;
           min-width: 0;
+          scrollbar-width: none;
+        }
+        .legend-signals::-webkit-scrollbar {
+          display: none;
         }
         .legend-signals .tag {
           font-size: 0.58rem;
+          padding: 2px 5px;
           flex-shrink: 0;
         }
         .band-row .tag {
           font-size: 0.64rem;
-        }
-        .legend-signals .tag::before {
-          width: 3px;
-          height: 3px;
         }
         .legend-bands {
           display: flex;
