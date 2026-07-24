@@ -727,7 +727,10 @@
         font-weight: 600;
       }
       .gap-val.over {
-        color: var(--warning);
+        color: #c084fc; /* 与「超配观望」同色 */
+      }
+      .gap-val.over.trim {
+        color: #fb923c; /* 与「建议减仓」同色 */
       }
       .gap-val.ok {
         color: var(--muted);
@@ -1245,12 +1248,31 @@
         .cell-stack.col-pct .ratio-badge {
           font-size: 0.68rem;
           padding: 1px 5px;
+          box-sizing: border-box;
         }
-        /* 目标/待补、分位列：固定三行高度，内容上下居中，切换模式不抖 */
+        /*
+         * 切换估值/总额配仓时行高不抖：
+         * - .sub 固定「金额+手数」两行（总额配仓只有徽章时也占满）
+         * - td 按三行总高预留（含徽章/标签 padding）；表格里 height≈min-height
+         */
+        .cell-stack.col-tgt .sub,
+        .cell-stack.col-pct .sub {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          min-height: calc(0.62rem * 1.4 + 0.62rem * 1.4 + 2px + 2px);
+          box-sizing: border-box;
+        }
         tbody td.col-tgt,
         tbody td.col-pct {
           height: calc(
-            0.74rem * 1.4 + 0.62rem * 1.4 + 0.62rem * 1.35 + 2px + 14px
+            0.74rem * 1.4 + 2px + 0.62rem * 1.4 + 0.62rem * 1.4 + 2px + 2px +
+              12px
+          );
+          min-height: calc(
+            0.74rem * 1.4 + 2px + 0.62rem * 1.4 + 0.62rem * 1.4 + 2px + 2px +
+              12px
           );
           vertical-align: middle;
           box-sizing: border-box;
@@ -1264,6 +1286,7 @@
           justify-content: center;
           gap: 2px;
           white-space: normal;
+          min-height: inherit;
         }
         .cell-stack.col-tgt .sub .tag,
         .cell-stack.col-pct .sub .tag {
@@ -1272,6 +1295,8 @@
           max-width: 100%;
           margin: 0 auto;
           padding: 1px 5px;
+          box-sizing: border-box;
+          line-height: 1.4;
         }
         .table-scroll {
           -webkit-overflow-scrolling: touch;
@@ -3095,13 +3120,13 @@
         const n = lots > 0 ? lots : 0;
         const cls =
           tone === true || tone === "warn"
-            ? "tag tag-warn"
+            ? "tag tag-s2" /* 谨慎买入 */
             : tone === "defer" || tone === "muted"
               ? "tag tag-defer"
               : typeof tone === "string" &&
                   (/^s[1-5]$/.test(tone) || tone === "trim" || tone === "over")
                 ? `tag tag-${tone}`
-                : "tag tag-ok";
+                : "tag tag-s4"; /* 正常买入：待补/已满 */
         return `<span class="${cls}">${n}手</span>`;
       }
 
@@ -3109,10 +3134,13 @@
         const n = shares > 0 ? shares : 0;
         const cls =
           tone === true || tone === "warn"
-            ? "tag tag-warn"
+            ? "tag tag-s2"
             : tone === "defer" || tone === "muted"
               ? "tag tag-defer"
-              : "tag tag-ok";
+              : typeof tone === "string" &&
+                  (/^s[1-5]$/.test(tone) || tone === "trim" || tone === "over")
+                ? `tag tag-${tone}`
+                : "tag tag-s4";
         return `<span class="${cls}">${n}股</span>`;
       }
 
@@ -3146,10 +3174,12 @@
 
         let needHtml;
         if (r.gap < -1) {
-          /* 与待补同结构：金额 + 标签 */
+          /* 超配：偏贵→建议减仓橙；否则→超配观望紫 */
+          const trim = suggestTrimAction(r, r.buildSig || r.val);
+          const isTrim = trim?.level === "trim";
           needHtml = gapPairHtml(
-            `<span class="gap-val over">${money(Math.abs(r.gap))}</span>`,
-            `<span class="tag tag-warn">超配</span>`,
+            `<span class="gap-val over${isTrim ? " trim" : ""}">${money(Math.abs(r.gap))}</span>`,
+            `<span class="tag ${isTrim ? "tag-trim" : "tag-over"}">超配</span>`,
           );
         } else if (buyMode === "build") {
           const factor = r.buildSig?.factor ?? 0;
@@ -3169,11 +3199,11 @@
                 ? Math.floor(nowFill / r.minLot)
                 : 0;
           const partialHtml = partialLotNeedHtml(r.price, budget, money);
-          /* 系数=0：战略仍欠配，但全部延后；第二行仍用 金额+标签，与其它行同高 */
+          /* 系数=0：战略仍欠配，但全部延后；色跟「暂停买入」 */
           if (factor <= 0 && (r.needFill || 0) >= 1) {
             needHtml = gapPairHtml(
-              `<span class="gap-val ok">${money(0)}</span>`,
-              `<span class="tag tag-defer" title="分位系数过高">分位过高</span>`,
+              `<span class="gap-val score-s1">${money(0)}</span>`,
+              `<span class="tag tag-s1" title="分位系数过高">分位过高</span>`,
             );
           } else if (nowLots >= 1 && nowFill >= 1) {
             needHtml = gapPairHtml(
@@ -3299,11 +3329,11 @@
 
         const heldPct = r.cost > 0 ? r.costBasis : r.marketValue;
         const targetHtml = `<span class="ratio-badge" style="opacity:.65">${r.targetPct.toFixed(0)}%</span>`;
-        /* 第二行包进 .sub，与估值配仓「延后」同高，切换不抖 */
+        /* .sub 固定两行高；单徽章时由 CSS 垂直居中，与估值配仓「延后」同高 */
         if (getTotalAmount() > 0 && heldPct > 0) {
           pctEl.innerHTML = `<span class="ratio-badge">${r.actualPct.toFixed(1)}%</span><br><span class="sub">${targetHtml}</span>`;
         } else {
-          pctEl.innerHTML = `—<br><span class="sub">${targetHtml}</span>`;
+          pctEl.innerHTML = `<span class="money">—</span><br><span class="sub">${targetHtml}</span>`;
         }
       }
 
