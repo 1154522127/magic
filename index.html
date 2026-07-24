@@ -621,6 +621,14 @@
       .cell-stack .sub {
         color: var(--muted);
         font-size: 0.72rem;
+        line-height: 1.35;
+      }
+      /* 第二行子元素一律继承 .sub，避免 gap-val/tag 各自字号不一致 */
+      .cell-stack .sub .gap-val,
+      .cell-stack .sub .tag,
+      .cell-stack .sub .gap-pair {
+        font-size: inherit;
+        line-height: inherit;
       }
       .gap-pair {
         display: inline-flex;
@@ -630,12 +638,8 @@
         gap: 4px;
         white-space: nowrap;
       }
-      .gap-pair .gap-val {
-        font-size: 0.76rem;
-      }
       .gap-pair .tag {
         flex: 0 0 auto;
-        font-size: 0.66rem;
         padding: 1px 5px;
       }
       .quote-cell {
@@ -711,7 +715,7 @@
       }
 
       .gap-val {
-        font-size: 0.76rem;
+        font-size: 0.72rem;
         font-weight: 700;
         font-variant-numeric: tabular-nums;
       }
@@ -727,6 +731,9 @@
       }
       .gap-val.ok {
         color: var(--muted);
+      }
+      .gap-val.gap-msg {
+        font-weight: 600;
       }
 
       .sr-only {
@@ -1198,8 +1205,12 @@
           line-height: 1.25;
           white-space: normal;
         }
+        tbody td {
+          vertical-align: middle;
+        }
         tbody td.col-tail {
           padding: 6px 3px;
+          vertical-align: middle;
         }
         .hd-full {
           display: none;
@@ -1219,22 +1230,30 @@
         .price-val {
           font-size: 0.74rem;
         }
+        .cell-stack.col-cm .money,
         .cell-stack.col-tgt .money,
         .cell-stack.col-pct .money {
           font-size: 0.74rem;
         }
-        .cell-stack.col-tgt .gap-val,
-        .cell-stack.col-pct .gap-val {
-          font-size: 0.7rem;
+        /* 成本市值 / 待补 / 延后第二行：只改 .sub，子元素 inherit */
+        .cell-stack.col-cm .sub,
+        .cell-stack.col-tgt .sub,
+        .cell-stack.col-pct .sub {
+          font-size: 0.62rem;
         }
         .cell-stack.col-tgt .ratio-badge,
         .cell-stack.col-pct .ratio-badge {
           font-size: 0.68rem;
           padding: 1px 5px;
         }
-        .cell-stack.col-tgt .sub,
-        .cell-stack.col-pct .sub {
-          font-size: 0.66rem;
+        /* 目标/待补、分位列：固定三行高度，内容上下居中，切换模式不抖 */
+        tbody td.col-tgt,
+        tbody td.col-pct {
+          height: calc(
+            0.74rem * 1.4 + 0.62rem * 1.4 + 0.62rem * 1.35 + 2px + 14px
+          );
+          vertical-align: middle;
+          box-sizing: border-box;
         }
         /* 目标/待补 与 分位/延后：金额在上、手数在下，布局一致 */
         .cell-stack.col-tgt .sub .gap-pair,
@@ -1242,6 +1261,7 @@
           display: flex;
           flex-direction: column;
           align-items: center;
+          justify-content: center;
           gap: 2px;
           white-space: normal;
         }
@@ -1251,7 +1271,6 @@
           width: fit-content;
           max-width: 100%;
           margin: 0 auto;
-          font-size: 0.6rem;
           padding: 1px 5px;
         }
         .table-scroll {
@@ -3127,7 +3146,11 @@
 
         let needHtml;
         if (r.gap < -1) {
-          needHtml = `<span class="gap-val over">超配 ${money(Math.abs(r.gap))}</span>`;
+          /* 与待补同结构：金额 + 标签 */
+          needHtml = gapPairHtml(
+            `<span class="gap-val over">${money(Math.abs(r.gap))}</span>`,
+            `<span class="tag tag-warn">超配</span>`,
+          );
         } else if (buyMode === "build") {
           const factor = r.buildSig?.factor ?? 0;
           const valDefer = r.suggest?.valDefer || 0;
@@ -3146,9 +3169,12 @@
                 ? Math.floor(nowFill / r.minLot)
                 : 0;
           const partialHtml = partialLotNeedHtml(r.price, budget, money);
-          /* 系数=0：战略仍欠配，但全部延后 */
+          /* 系数=0：战略仍欠配，但全部延后；第二行仍用 金额+标签，与其它行同高 */
           if (factor <= 0 && (r.needFill || 0) >= 1) {
-            needHtml = `<span class="gap-val ok">分位系数过高</span>`;
+            needHtml = gapPairHtml(
+              `<span class="gap-val ok">${money(0)}</span>`,
+              `<span class="tag tag-defer" title="分位系数过高">分位过高</span>`,
+            );
           } else if (nowLots >= 1 && nowFill >= 1) {
             needHtml = gapPairHtml(
               `<span class="gap-val need">${money(nowFill)}</span>`,
@@ -3273,10 +3299,11 @@
 
         const heldPct = r.cost > 0 ? r.costBasis : r.marketValue;
         const targetHtml = `<span class="ratio-badge" style="opacity:.65">${r.targetPct.toFixed(0)}%</span>`;
+        /* 第二行包进 .sub，与估值配仓「延后」同高，切换不抖 */
         if (getTotalAmount() > 0 && heldPct > 0) {
-          pctEl.innerHTML = `<span class="ratio-badge">${r.actualPct.toFixed(1)}%</span><br>${targetHtml}`;
+          pctEl.innerHTML = `<span class="ratio-badge">${r.actualPct.toFixed(1)}%</span><br><span class="sub">${targetHtml}</span>`;
         } else {
-          pctEl.innerHTML = `—<br>${targetHtml}`;
+          pctEl.innerHTML = `—<br><span class="sub">${targetHtml}</span>`;
         }
       }
 
@@ -4421,7 +4448,7 @@
           const cmEl = document.getElementById("costmkt-" + r.code);
           if (r.shares > 0) {
             const costLine = r.cost > 0 ? money(r.costBasis) : "—";
-            cmEl.innerHTML = `<span>${costLine}</span><br><span class="sub">${money(r.marketValue)}</span>`;
+            cmEl.innerHTML = `<span class="money">${costLine}</span><br><span class="sub">${money(r.marketValue)}</span>`;
           } else {
             cmEl.textContent = "—";
           }
