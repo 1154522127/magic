@@ -3196,7 +3196,7 @@
         let needHtml;
         if (r.gap < -1) {
           if (buyMode === "dca") {
-            /* 总额配仓：超配金额/标签跟上面待补一样用绿色 */
+            /* 总额配仓：待补列统一绿色（含超配），与「待补金额/手数」同款 */
             needHtml = gapPairHtml(
               `<span class="gap-val need">${money(Math.abs(r.gap))}</span>`,
               `<span class="tag tag-s4">超配</span>`,
@@ -3269,8 +3269,9 @@
             );
           }
         } else {
+          /* 总额配仓已满：金额/手数也统一绿色，勿用 ok 灰 */
           needHtml = gapPairHtml(
-            `<span class="gap-val ok">${money(0)}</span>`,
+            `<span class="gap-val need">${money(0)}</span>`,
             lotsTag(0, false),
           );
         }
@@ -3353,9 +3354,10 @@
               lotsTag(n, deferLotTone),
             );
           } else {
+            /* 延后为 0 也跟操作建议色（超配观望紫 / 建议减仓橙等），勿用 ok/defer 灰 */
             deferHtml = gapPairHtml(
-              `<span class="gap-val ok">${money(0)}</span>`,
-              lotsTag(0, "defer"),
+              `<span class="gap-val ${deferAmtCls}">${money(0)}</span>`,
+              lotsTag(0, deferLotTone),
             );
           }
           pctEl.innerHTML = `${scoreHtml}<br><span class="sub">${deferHtml}</span>`;
@@ -3364,11 +3366,9 @@
 
         const heldPct = r.cost > 0 ? r.costBasis : r.marketValue;
         const targetHtml = `<span class="ratio-badge" style="opacity:.65">${r.targetPct.toFixed(0)}%</span>`;
-        /* .sub 固定两行高；单徽章时由 CSS 垂直居中，与估值配仓「延后」同高 */
-        /* 超配时实际占比跟待补列同用绿色（与上面待补一致） */
-        const actualCls = r.gap < -1 ? "score-s4" : "";
+        /* 总额配仓占比只展示数字，不跟超配/操作建议变色 */
         if (getTotalAmount() > 0 && heldPct > 0) {
-          pctEl.innerHTML = `<span class="ratio-badge ${actualCls}">${r.actualPct.toFixed(1)}%</span><br><span class="sub">${targetHtml}</span>`;
+          pctEl.innerHTML = `<span class="ratio-badge">${r.actualPct.toFixed(1)}%</span><br><span class="sub">${targetHtml}</span>`;
         } else {
           pctEl.innerHTML = `<span class="money">—</span><br><span class="sub">${targetHtml}</span>`;
         }
