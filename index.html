@@ -1533,10 +1533,10 @@
       </div>
 
       <div class="bottom-area">
-        <div class="banner info" id="banner">等待数据…</div>
         <div class="banner info" id="valBanner">
           估值加载中…（成长科技·启发预期·股息市净·股债比价+CN10Y）
         </div>
+        <div class="banner warn" id="banner">等待数据…</div>
         <div class="summary-wrap">
           <div class="summary-bar">
             <div class="stat">
@@ -3238,7 +3238,7 @@
           if (factor <= 0 && (r.needFill || 0) >= 1) {
             needHtml = gapPairHtml(
               `<span class="gap-val score-s1">${money(0)}</span>`,
-              `<span class="tag tag-s1" title="分位系数过高">分位过高</span>`,
+              `<span class="tag tag-s1" title="暂停买入">暂停</span>`,
             );
           } else if (nowLots >= 1 && nowFill >= 1) {
             needHtml = gapPairHtml(
@@ -3285,14 +3285,13 @@
         const stopStr = Number.isInteger(stop) ? String(stop) : stop.toFixed(1);
         const yldStr = Number.isInteger(yld) ? String(yld) : yld.toFixed(1);
         return (
-          `覆盖规则：QDII 溢价 >${stopStr}% → 暂停买入；` +
-          `红利股息 <${yldStr}% → 降为谨慎；` +
-          `分位列展示真实综合（颜色跟操作建议）`
+          `覆盖规则：QDII 溢价 >${stopStr}% → 暂停买。` +
+          `红利股息 <${yldStr}% → 降为谨慎。`
         );
       }
 
       function showOverlayRulesBanner() {
-        setBanner("info", overlayRulesText());
+        setBanner("warn", overlayRulesText());
       }
 
       function syncModeUI() {
@@ -4012,15 +4011,8 @@
         ensureMacroUsdcny();
         const results = preResults || evaluatePortfolio();
         logSignalHistory(results);
-        let buyN = 0,
-          warnN = 0,
-          stopN = 0;
         const rowByCode = {};
         if (rows) rows.forEach((r) => (rowByCode[r.code] = r));
-
-        let suggestTotal = 0;
-        let valDeferTotal = 0;
-        let cashCapped = false;
 
         PORTFOLIO.forEach((p) => {
           const r = results[p.code];
@@ -4059,9 +4051,6 @@
             r,
             row,
           );
-          if (r.level === "buy" || r.level === "ok") buyN++;
-          else if (r.level === "warn") warnN++;
-          else if (r.level === "stop") stopN++;
         });
 
         if (buyMode === "build" && rows) {
@@ -4077,30 +4066,9 @@
             0,
           );
           const cashLeft = Math.max(0, totalAmt - heldTotal);
-          const scaled = scaleSuggestsToCash(rows, cashLeft);
-          suggestTotal = scaled.suggestTotal;
-          cashCapped = scaled.capped;
-          valDeferTotal = rows.reduce(
-            (s, r) => s + (r.suggest?.valDefer || 0),
-            0,
-          );
+          scaleSuggestsToCash(rows, cashLeft);
         }
 
-        const parts = [];
-        if (buyMode === "build") {
-          const totalAmt = getTotalAmount();
-          if (totalAmt <= 0) parts.push("请先填投入总额");
-          else {
-            parts.push(`本次建议 ¥${fmt(suggestTotal)}`);
-            if (cashCapped) parts.push("已按剩余额度收紧");
-            if (valDeferTotal >= 1)
-              parts.push(`估值延后 ¥${fmt(valDeferTotal)}`);
-          }
-        } else {
-          if (buyN) parts.push(`${buyN} 只可买`);
-          if (warnN) parts.push(`${warnN} 只建议谨慎`);
-          if (stopN) parts.push(`${stopN} 只建议暂停`);
-        }
         const sourceStr =
           valSource === "danjuan"
             ? "·蛋卷"
@@ -4111,7 +4079,7 @@
         const staleStr =
           ageDays != null && ageDays > 2 ? ` · 滞后${ageDays}天` : "";
         const dateStr = valDate
-          ? ` · 数据${valDate}${sourceStr}${staleStr}`
+          ? `数据来源：${valDate}${sourceStr}${staleStr}`
           : "";
         const macroStr = macroCtx.bondYieldPct
           ? ` · CN10Y${macroCtx.bondYieldPct.toFixed(2)}%`
@@ -4125,14 +4093,9 @@
           isLocalAppPage() && valSource === "mirror"
             ? " · 蛋卷实时：先运行 python3 proxy/valuation.py，再点刷新"
             : "";
-        const head = buyMode === "build" ? "估值配仓" : "估值结论";
         setValBanner(
-          `📊 ${head}：${parts.join("，") || "—"}${dateStr}${macroStr}${usBondStr}${fxStr}${proxyHint}`,
-          stopN >= 2 ||
-            (ageDays != null && ageDays > 2) ||
-            (isLocalAppPage() && valSource === "mirror")
-            ? "warn"
-            : "info",
+          `${dateStr}${macroStr}${usBondStr}${fxStr}${proxyHint}` || "—",
+          "info",
         );
       }
 
