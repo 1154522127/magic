@@ -436,7 +436,7 @@
       .lot-wrap[hidden] {
         display: none !important;
       }
-      /* 有合计时占位会被撑高：下一组上移，卡片间距与「一手市值→仓位成本」一致 */
+      /* 有合计时占位会被撑高：下一组上移，保持卡片间距一致 */
       .lot-wrap:has(> .lot-foot:not([hidden])) + .lot-wrap {
         margin-top: -1.35em;
       }
@@ -553,7 +553,7 @@
       }
       tbody td {
         text-align: center;
-        padding: 7px 4px;
+        padding: 5px 4px;
         border-bottom: 1px solid var(--border);
         vertical-align: middle;
       }
@@ -751,15 +751,14 @@
       }
 
       .val-text {
-        padding: 4px 2px;
+        padding: 2px 2px;
         text-align: center;
         vertical-align: middle;
         font-size: 0.72rem;
         color: var(--muted);
-        line-height: 1.25;
+        line-height: 1.2;
         font-variant-numeric: tabular-nums;
-        overflow-x: hidden;
-        overflow-y: visible;
+        overflow: hidden;
         box-sizing: border-box;
       }
       .val-text b {
@@ -771,16 +770,28 @@
         text-align: center;
         overflow: hidden;
         text-overflow: ellipsis;
+        line-height: 1.2;
       }
       .val-detail {
-        margin-top: 2px;
+        margin-top: 1px;
         font-size: 0.64rem;
-        line-height: 1.35;
+        line-height: 1.25;
         opacity: 0.75;
         white-space: normal;
         text-align: center;
         word-break: keep-all;
         overflow-wrap: anywhere;
+      }
+
+      /* 电脑端：表格不纵向滚动；估值格保持 table-cell，避免边框断开 */
+      @media (min-width: 769px) {
+        .table-scroll {
+          overflow-x: auto;
+          overflow-y: hidden;
+        }
+        .table-wrap {
+          min-height: auto;
+        }
       }
 
       .hd-short {
@@ -985,7 +996,6 @@
         }
         .app {
           height: auto;
-          min-height: 100dvh;
           width: 100%;
           max-width: 100%;
           overflow-x: hidden;
@@ -1173,7 +1183,7 @@
         /* 固定两行高度，切换总额/估值配仓时底部不跟着抖 */
         .banner {
           font-size: 0.8rem;
-          white-space: normal;
+          white-space: pre-line;
           line-height: 1.35;
           height: calc(1em * 1.35 * 2 + 10px + 2px);
           padding: 5px 10px;
@@ -1185,6 +1195,8 @@
           overflow: hidden;
           text-overflow: ellipsis;
           word-break: break-word;
+          text-align: center;
+          -webkit-box-pack: center;
         }
 
         .mobile-hint {
@@ -1558,11 +1570,11 @@
           </div>
         </div>
         <div class="lot-wrap" id="oneLotWrap">
-          <div class="lot-title">当前一手市值</div>
+          <div class="lot-title">一手市值</div>
           <div class="summary-bar lot-bar" id="sOneLotBar">—</div>
         </div>
         <div class="lot-wrap" id="oneLotCostWrap">
-          <div class="lot-title">当前仓位成本</div>
+          <div class="lot-title">仓位成本</div>
           <div class="summary-bar lot-bar" id="sOneLotCostBar">—</div>
           <div class="lot-foot" id="sPosCostFoot" hidden>
             <span class="lot-foot-lbl">合计</span>
@@ -1698,8 +1710,20 @@
         normal: 50,
         mild: 70,
         rich: 85,
-        zoneHigh: 70,
+        /* 估值分区 7 档分位切点 → zoneNames；≤前三档、＜后三档，末档≥rich */
+        zoneCuts: [15, 30, 42, 58, 70, 85],
+        zoneNames: [
+          "极低区",
+          "低估区",
+          "偏低区",
+          "合理区",
+          "略高区",
+          "偏高区",
+          "过高区",
+        ],
+        /* 债侧统计：低侧含极低/低估；高侧含偏高/过高（对齐原 ≤30 / ≥70） */
         zoneLow: 30,
+        zoneHigh: 70,
         warnCap: 0.5,
         /* 标签升级最多下拉部署分位，避免综合~60 被压成 40 后几乎满仓 */
         upgradePullMax: 10,
@@ -2056,7 +2080,14 @@
         document.getElementById("liveDot").classList.toggle("on", live);
       }
 
+      let bannerKind = "overlay";
+
+      function isMobileView() {
+        return window.matchMedia("(max-width: 768px)").matches;
+      }
+
       function setBanner(type, text) {
+        bannerKind = "custom";
         const el = document.getElementById("banner");
         el.className = "banner " + type;
         el.textContent = text;
@@ -2803,11 +2834,25 @@
       }
 
       function zoneFromPct(pct) {
-        return pct <= VAL.zoneLow
-          ? "低估区"
-          : pct < VAL.zoneHigh
-            ? "合理区"
-            : "偏高区";
+        if (pct == null || !Number.isFinite(+pct)) return "—";
+        const p = +pct;
+        const cuts = VAL.zoneCuts;
+        const names = VAL.zoneNames;
+        for (let i = 0; i < cuts.length; i++) {
+          const inclusive = i < 3;
+          if (inclusive ? p <= cuts[i] : p < cuts[i]) return names[i];
+        }
+        return names[names.length - 1];
+      }
+
+      /* 债侧/减仓：高估侧（对齐原「偏高区」≥zoneHigh） */
+      function isHighZone(zone) {
+        return zone === "偏高区" || zone === "过高区";
+      }
+
+      /* 债侧：低估侧（对齐原「低估区」≤zoneLow） */
+      function isLowZone(zone) {
+        return zone === "极低区" || zone === "低估区";
       }
 
       function earningsYield(v) {
@@ -2886,7 +2931,7 @@
         const rich =
           sig.level === "stop" ||
           sig.level === "warn" ||
-          sig.zone === "偏高区" ||
+          isHighZone(sig.zone) ||
           (sig.score != null &&
             Number.isFinite(sig.score) &&
             sig.score >= VAL.mild);
@@ -3278,20 +3323,37 @@
         el.innerHTML = `<span class="money">${money(r.targetValue)}</span><br><span class="sub">${needHtml}</span>`;
       }
 
-      /* 覆盖规则文案：从 VAL 动态生成，展示在原「剩余未分配」横幅位置 */
-      function overlayRulesText() {
+      /* 覆盖规则短句：接到数据来源条末尾 */
+      function overlayRulesSuffix() {
         const stop = VAL.qdiiPremStop;
         const yld = VAL.divYldFloor;
         const stopStr = Number.isInteger(stop) ? String(stop) : stop.toFixed(1);
         const yldStr = Number.isInteger(yld) ? String(yld) : yld.toFixed(1);
         return (
-          `覆盖规则：QDII 溢价 >${stopStr}% → 暂停买。` +
-          `红利股息 <${yldStr}% → 降为谨慎。`
+          `QDII 溢价 >${stopStr}% → 暂停买 · ` +
+          `红利股息 <${yldStr}% → 降为谨慎`
         );
       }
 
+      /* 粗锚说明：手机端两行居中，电脑端一行 + \u00A0 间距 */
+      function overlayRulesText() {
+        const pct = `纳指分位<55% · 标普分位<58% · 红利分位<44%`;
+        const abs = `纳指PE≤28–30 · 标普PE≤18–20 · 红利股息≥4.8–5.5%`;
+        if (isMobileView()) return `${pct}\n${abs}`;
+        return `${pct}\u00A0\u00A0\u00A0${abs}`;
+      }
+
       function showOverlayRulesBanner() {
-        setBanner("warn", overlayRulesText());
+        bannerKind = "overlay";
+        const text = overlayRulesText();
+        const el = document.getElementById("banner");
+        el.className = "banner warn";
+        el.textContent = text;
+        el.title = text;
+      }
+
+      function refreshResponsiveBanners() {
+        if (bannerKind === "overlay") showOverlayRulesBanner();
       }
 
       function syncModeUI() {
@@ -3429,6 +3491,31 @@
         return body
           ? metrics + `<div class="val-detail">${body}</div>`
           : metrics;
+      }
+
+      /* 电脑端：整行按最高行实测等高，保持 table-cell 边框不断开 */
+      function syncValRowHeights() {
+        const rows = document.querySelectorAll("#mainBody tr");
+        if (!rows.length) return;
+        const desktop = window.matchMedia("(min-width: 769px)").matches;
+        rows.forEach((r) => {
+          r.style.height = "";
+        });
+        /* 清掉旧版写在 td 上的等高，避免残留打断边框 */
+        document.querySelectorAll("td.val-text").forEach((c) => {
+          c.style.height = "";
+          c.style.minHeight = "";
+        });
+        if (!desktop) return;
+        let max = 0;
+        rows.forEach((r) => {
+          max = Math.max(max, r.getBoundingClientRect().height);
+        });
+        if (max < 1) return;
+        const px = Math.ceil(max) + "px";
+        rows.forEach((r) => {
+          r.style.height = px;
+        });
       }
 
       function signalFromPercentile(pct, divBonus, bands) {
@@ -3853,20 +3940,18 @@
               ? equityCtx.reduce((s, e) => s + e.score * e.weight, 0) /
                 totalWeight
               : 60;
-            const highCount = equityCtx.filter(
-              (e) => e.zone === "偏高区",
+            const highCount = equityCtx.filter((e) =>
+              isHighZone(e.zone),
             ).length;
-            const lowCount = equityCtx.filter(
-              (e) => e.zone === "低估区",
-            ).length;
+            const lowCount = equityCtx.filter((e) => isLowZone(e.zone)).length;
             const highWeight = totalWeight
               ? equityCtx
-                  .filter((e) => e.zone === "偏高区")
+                  .filter((e) => isHighZone(e.zone))
                   .reduce((s, e) => s + e.weight, 0) / totalWeight
               : 0;
             const lowWeight = totalWeight
               ? equityCtx
-                  .filter((e) => e.zone === "低估区")
+                  .filter((e) => isLowZone(e.zone))
                   .reduce((s, e) => s + e.weight, 0) / totalWeight
               : 0;
             results[bondP.code] = evalBond({
@@ -4078,25 +4163,24 @@
         const ageDays = valDataAgeDays(valDate);
         const staleStr =
           ageDays != null && ageDays > 2 ? ` · 滞后${ageDays}天` : "";
-        const dateStr = valDate
-          ? `数据来源：${valDate}${sourceStr}${staleStr}`
-          : "";
+        const dateStr = valDate ? `${valDate}${sourceStr}${staleStr}` : "";
         const macroStr = macroCtx.bondYieldPct
           ? ` · CN10Y${macroCtx.bondYieldPct.toFixed(2)}%`
           : "";
         const usBondStr = macroCtx.usBondYieldPct
           ? ` · US10Y${macroCtx.usBondYieldPct.toFixed(1)}%`
           : "";
-        const fxStr =
-          macroCtx.usdcny != null ? ` · USD${macroCtx.usdcny.toFixed(2)}` : "";
         const proxyHint =
           isLocalAppPage() && valSource === "mirror"
             ? " · 蛋卷实时：先运行 python3 proxy/valuation.py，再点刷新"
             : "";
+        /* 先插入零宽断点，避免 \u00A0 把 US10Y 与 QDII 粘死导致整段换行 */
+        const overlayStr = `\u200B\u00A0\u00A0\u00A0${overlayRulesSuffix()}`;
         setValBanner(
-          `${dateStr}${macroStr}${usBondStr}${fxStr}${proxyHint}` || "—",
+          `${dateStr}${macroStr}${usBondStr}${proxyHint}${overlayStr}` || "—",
           "info",
         );
+        requestAnimationFrame(syncValRowHeights);
       }
 
       /* 操作建议 → 分位徽章色（与说明栏 tag 一一对应） */
@@ -4579,6 +4663,15 @@
       updateAmountLive();
       refreshAll(false);
       setInterval(() => refreshAll(false), REFRESH_MS);
+
+      let _valHSyncTimer = 0;
+      window.addEventListener("resize", () => {
+        clearTimeout(_valHSyncTimer);
+        _valHSyncTimer = setTimeout(() => {
+          syncValRowHeights();
+          refreshResponsiveBanners();
+        }, 80);
+      });
 
       document.querySelectorAll("#modeToggle .mode-btn").forEach((btn) => {
         btn.addEventListener("click", () => setBuyMode(btn.dataset.mode));

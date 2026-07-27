@@ -26,6 +26,16 @@ VAL = dict(
     normal=50,
     mild=70,
     rich=85,
+    zoneCuts=(15, 30, 42, 58, 70, 85),
+    zoneNames=(
+        "极低区",
+        "低估区",
+        "偏低区",
+        "合理区",
+        "略高区",
+        "偏高区",
+        "过高区",
+    ),
     zoneHigh=70,
     zoneLow=30,
     warnCap=0.5,
@@ -195,11 +205,21 @@ def erp(v: dict, bond: float) -> float:
 
 
 def zone(score: float) -> str:
-    if score <= VAL["zoneLow"]:
-        return "低估区"
-    if score < VAL["zoneHigh"]:
-        return "合理区"
-    return "偏高区"
+    cuts = VAL["zoneCuts"]
+    names = VAL["zoneNames"]
+    for i, cut in enumerate(cuts):
+        inclusive = i < 3
+        if score <= cut if inclusive else score < cut:
+            return names[i]
+    return names[-1]
+
+
+def is_high_zone(z: str) -> bool:
+    return z in ("偏高区", "过高区")
+
+
+def is_low_zone(z: str) -> bool:
+    return z in ("极低区", "低估区")
 
 
 def sig_of(action: str) -> dict:
@@ -610,10 +630,10 @@ def evaluate_day(
     else:
         tw = sum(e["weight"] for e in equity)
         avg = sum(e["score"] * e["weight"] for e in equity) / tw
-        high_n = sum(1 for e in equity if e["zone"] == "偏高区")
-        low_n = sum(1 for e in equity if e["zone"] == "低估区")
-        high_w = sum(e["weight"] for e in equity if e["zone"] == "偏高区") / tw
-        low_w = sum(e["weight"] for e in equity if e["zone"] == "低估区") / tw
+        high_n = sum(1 for e in equity if is_high_zone(e["zone"]))
+        low_n = sum(1 for e in equity if is_low_zone(e["zone"]))
+        high_w = sum(e["weight"] for e in equity if is_high_zone(e["zone"])) / tw
+        low_w = sum(e["weight"] for e in equity if is_low_zone(e["zone"])) / tw
         if use_new:
             out[bond["code"]] = eval_bond_new(avg, high_n, low_n, high_w, low_w, len(equity), cny)
         else:
