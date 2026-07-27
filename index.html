@@ -3329,9 +3329,10 @@
             (score != null && Number.isFinite(score)
               ? scoreMetaCls(score, r.method)
               : "");
+          /* 分位只着色、不加徽章底，避免和「占比/比例」的 ratio-badge 搞混 */
           const scoreHtml =
             score != null && Number.isFinite(score)
-              ? `<span class="ratio-badge ${scoreCls}">${Number(score).toFixed(1)}%</span>`
+              ? `<span class="money ${scoreCls}">${Number(score).toFixed(1)}%</span>`
               : `<span class="money">—</span>`;
           /* 估值延后：金额与手数都跟分位同色，和绿色「待补」区分 */
           const valDefer = r.suggest?.valDefer ?? 0;
