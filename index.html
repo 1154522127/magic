@@ -3339,8 +3339,8 @@
       function overlayRulesText() {
         const pct = `纳指分位<55% · 标普分位<58% · 红利分位<44%`;
         const abs = `纳指PE≤28–30 · 标普PE≤18–20 · 红利股息≥4.8–5.5%`;
-        if (isMobileView()) return `${pct}\n${abs}`;
-        return `${pct}\u00A0\u00A0\u00A0${abs}`;
+        if (isMobileView()) return `${abs}\n${pct}`;
+        return `${abs}\u00A0\u00A0\u00A0${pct}`;
       }
 
       function showOverlayRulesBanner() {
