@@ -3329,10 +3329,41 @@
         const yld = VAL.divYldFloor;
         const stopStr = Number.isInteger(stop) ? String(stop) : stop.toFixed(1);
         const yldStr = Number.isInteger(yld) ? String(yld) : yld.toFixed(1);
-        return (
-          `QDII 溢价 >${stopStr}% → 暂停买 · ` +
-          `红利股息 <${yldStr}% → 降为谨慎`
-        );
+        /* 短语内用 nbsp，避免手机端在「溢价」与「>5%」之间断开 */
+        const qdii = `QDII\u00A0溢价\u00A0>${stopStr}%\u00A0→\u00A0暂停买`;
+        const div = `红利股息\u00A0<${yldStr}%\u00A0→\u00A0降为谨慎`;
+        return `${qdii} · ${div}`;
+      }
+
+      /* 估值来源条：覆盖规则 + 日期/宏观（手机端两行，规则在上） */
+      function buildValSourceBannerText() {
+        const sourceStr =
+          valSource === "danjuan"
+            ? "·蛋卷"
+            : valSource === "mirror"
+              ? "·镜像"
+              : "";
+        const ageDays = valDataAgeDays(valDate);
+        const staleStr =
+          ageDays != null && ageDays > 2 ? ` · 滞后${ageDays}天` : "";
+        const dateStr = valDate ? `${valDate}${sourceStr}${staleStr}` : "";
+        const macroStr = macroCtx.bondYieldPct
+          ? ` · CN10Y${macroCtx.bondYieldPct.toFixed(2)}%`
+          : "";
+        const usBondStr = macroCtx.usBondYieldPct
+          ? ` · US10Y${macroCtx.usBondYieldPct.toFixed(1)}%`
+          : "";
+        const proxyHint =
+          isLocalAppPage() && valSource === "mirror"
+            ? " · 蛋卷实时：先运行 python3 proxy/valuation.py，再点刷新"
+            : "";
+        const meta = `${dateStr}${macroStr}${usBondStr}${proxyHint}`;
+        const rules = overlayRulesSuffix();
+        /* 手机端两行：覆盖规则在上、日期宏观在下；桌面一行 */
+        if (isMobileView()) {
+          return meta || rules ? `${rules}\n${meta}` : "—";
+        }
+        return `${meta}\u200B\u00A0\u00A0\u00A0${rules}` || "—";
       }
 
       /* 粗锚说明：手机端两行居中，电脑端一行 + \u00A0 间距 */
@@ -3354,6 +3385,10 @@
 
       function refreshResponsiveBanners() {
         if (bannerKind === "overlay") showOverlayRulesBanner();
+        const vb = document.getElementById("valBanner");
+        if (vb && vb.classList.contains("info") && valDate) {
+          setValBanner(buildValSourceBannerText(), "info");
+        }
       }
 
       function syncModeUI() {
@@ -4154,32 +4189,7 @@
           scaleSuggestsToCash(rows, cashLeft);
         }
 
-        const sourceStr =
-          valSource === "danjuan"
-            ? "·蛋卷"
-            : valSource === "mirror"
-              ? "·镜像"
-              : "";
-        const ageDays = valDataAgeDays(valDate);
-        const staleStr =
-          ageDays != null && ageDays > 2 ? ` · 滞后${ageDays}天` : "";
-        const dateStr = valDate ? `${valDate}${sourceStr}${staleStr}` : "";
-        const macroStr = macroCtx.bondYieldPct
-          ? ` · CN10Y${macroCtx.bondYieldPct.toFixed(2)}%`
-          : "";
-        const usBondStr = macroCtx.usBondYieldPct
-          ? ` · US10Y${macroCtx.usBondYieldPct.toFixed(1)}%`
-          : "";
-        const proxyHint =
-          isLocalAppPage() && valSource === "mirror"
-            ? " · 蛋卷实时：先运行 python3 proxy/valuation.py，再点刷新"
-            : "";
-        /* 先插入零宽断点，避免 \u00A0 把 US10Y 与 QDII 粘死导致整段换行 */
-        const overlayStr = `\u200B\u00A0\u00A0\u00A0${overlayRulesSuffix()}`;
-        setValBanner(
-          `${dateStr}${macroStr}${usBondStr}${proxyHint}${overlayStr}` || "—",
-          "info",
-        );
+        setValBanner(buildValSourceBannerText(), "info");
         requestAnimationFrame(syncValRowHeights);
       }
 
