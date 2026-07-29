@@ -45,6 +45,7 @@
         height: 100%;
         overflow: hidden;
         overscroll-behavior: none;
+        background: #0f1419;
       }
 
       body {
@@ -72,8 +73,6 @@
         gap: 6px;
         overflow-y: auto;
         overscroll-behavior: none;
-        background: #0f1419;
-        background: linear-gradient(160deg, #0f1419 0%, #1a2744 100%);
       }
 
       .topbar {
@@ -999,23 +998,23 @@
       @media (max-width: 768px) {
         html,
         body {
-          overflow: hidden;
-          height: 100%;
-          height: 100dvh;
+          overflow-x: hidden;
+          overflow-y: auto;
+          height: auto;
+          min-height: 100%;
+          min-height: 100dvh;
           overscroll-behavior: none;
           background: #0f1419;
         }
         .app {
-          height: 100%;
-          height: 100dvh;
+          height: auto;
           width: 100%;
           max-width: 100%;
-          overflow: hidden;
+          overflow-x: hidden;
+          overflow-y: hidden;
           overscroll-behavior: none;
           padding-left: calc(10px + env(safe-area-inset-left));
           padding-right: calc(10px + env(safe-area-inset-right));
-          background: #0f1419;
-          background: linear-gradient(160deg, #0f1419 0%, #1a2744 100%);
         }
 
         .topbar {
