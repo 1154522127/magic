@@ -3269,7 +3269,6 @@
             );
           }
         } else if (buyMode === "build") {
-          const factor = r.buildSig?.factor ?? 0;
           const valDefer = r.suggest?.valDefer || 0;
           const budget =
             r.suggest != null
@@ -3292,13 +3291,8 @@
             money,
             lotTone,
           );
-          /* 系数=0：战略仍欠配，但全部延后；色跟「暂停买入」 */
-          if (factor <= 0 && (r.needFill || 0) >= 1) {
-            needHtml = gapPairHtml(
-              `<span class="gap-val score-s1">${money(0)}</span>`,
-              `<span class="tag tag-s1" title="暂停买入">暂停</span>`,
-            );
-          } else if (nowLots >= 1 && nowFill >= 1) {
+          /* 系数=0：可买为 0，战略缺口在延后列；待补按金额/手数规则，不单独标「暂停」 */
+          if (nowLots >= 1 && nowFill >= 1) {
             needHtml = gapPairHtml(
               `<span class="gap-val ${amtCls}">${money(nowFill)}</span>`,
               lotsTag(nowLots, lotTone),
@@ -3312,28 +3306,19 @@
             );
           }
         } else if (r.needFill >= 1) {
-          /* 总额配仓：暂停/硬停仍展示真实缺口，手数位改为「暂停」 */
-          const paused = !!(r.val?.hardStop || r.val?.level === "stop");
-          if (paused) {
+          const partialHtml = partialLotNeedHtml(r.price, r.needFill, money);
+          if (r.needLots >= 1) {
             needHtml = gapPairHtml(
-              `<span class="gap-val score-s1">${money(r.needFill)}</span>`,
-              `<span class="tag tag-s1" title="暂停买入">暂停</span>`,
+              `<span class="gap-val need">${money(r.needFill)}</span>`,
+              lotsTag(r.needLots, false),
             );
+          } else if (partialHtml) {
+            needHtml = partialHtml;
           } else {
-            const partialHtml = partialLotNeedHtml(r.price, r.needFill, money);
-            if (r.needLots >= 1) {
-              needHtml = gapPairHtml(
-                `<span class="gap-val need">${money(r.needFill)}</span>`,
-                lotsTag(r.needLots, false),
-              );
-            } else if (partialHtml) {
-              needHtml = partialHtml;
-            } else {
-              needHtml = gapPairHtml(
-                `<span class="gap-val need">${money(r.needFill)}</span>`,
-                lotsTag(0, false),
-              );
-            }
+            needHtml = gapPairHtml(
+              `<span class="gap-val need">${money(r.needFill)}</span>`,
+              lotsTag(0, false),
+            );
           }
         } else {
           /* 总额配仓已满：金额/手数也统一绿色，勿用 ok 灰 */
