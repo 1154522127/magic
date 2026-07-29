@@ -3312,19 +3312,28 @@
             );
           }
         } else if (r.needFill >= 1) {
-          const partialHtml = partialLotNeedHtml(r.price, r.needFill, money);
-          if (r.needLots >= 1) {
+          /* 总额配仓：暂停/硬停仍展示真实缺口，手数位改为「暂停」 */
+          const paused = !!(r.val?.hardStop || r.val?.level === "stop");
+          if (paused) {
             needHtml = gapPairHtml(
-              `<span class="gap-val need">${money(r.needFill)}</span>`,
-              lotsTag(r.needLots, false),
+              `<span class="gap-val score-s1">${money(r.needFill)}</span>`,
+              `<span class="tag tag-s1" title="暂停买入">暂停</span>`,
             );
-          } else if (partialHtml) {
-            needHtml = partialHtml;
           } else {
-            needHtml = gapPairHtml(
-              `<span class="gap-val need">${money(r.needFill)}</span>`,
-              lotsTag(0, false),
-            );
+            const partialHtml = partialLotNeedHtml(r.price, r.needFill, money);
+            if (r.needLots >= 1) {
+              needHtml = gapPairHtml(
+                `<span class="gap-val need">${money(r.needFill)}</span>`,
+                lotsTag(r.needLots, false),
+              );
+            } else if (partialHtml) {
+              needHtml = partialHtml;
+            } else {
+              needHtml = gapPairHtml(
+                `<span class="gap-val need">${money(r.needFill)}</span>`,
+                lotsTag(0, false),
+              );
+            }
           }
         } else {
           /* 总额配仓已满：金额/手数也统一绿色，勿用 ok 灰 */
@@ -4543,11 +4552,8 @@
           const heldBase = heldForGap(h);
           const gap = targetValue - heldBase;
           const val = valResults[h.code];
-          /* DCA：暂停/硬停不建议买，待补置 0 */
-          let needFill = gap > 0 ? gap : 0;
-          if (buyMode === "dca" && (val?.hardStop || val?.level === "stop")) {
-            needFill = 0;
-          }
+          /* 战略缺口始终保留；暂停/硬停只在 UI 标「暂停」，不再把待补清零 */
+          const needFill = gap > 0 ? gap : 0;
           const minLot = h.price > 0 ? h.price * LOT : 0;
           const allocTarget = newCash > 0 ? newCash * h.ratio : 0;
           const lots = minLot > 0 ? Math.floor(allocTarget / minLot) : 0;
