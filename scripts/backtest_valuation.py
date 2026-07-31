@@ -97,6 +97,7 @@ VAL = dict(
 PORTFOLIO = [
     dict(code="513100", name="纳指100", ratio=0.12, index="NDX", method="ndx", secid="1.513100"),
     dict(code="513500", name="标普500", ratio=0.28, index="SP500", method="sp500", secid="1.513500"),
+    # 515450 跟踪标普大盘红利低波50；PE/PB分位用 CSIH30269，股息可由持仓加权覆盖
     dict(code="515450", name="红利低波", ratio=0.40, index="CSIH30269", method="dividend", secid="1.515450"),
     dict(code="511260", name="十年国债", ratio=0.20, index=None, method="bond", secid="1.511260"),
 ]

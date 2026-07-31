@@ -1672,12 +1672,15 @@
           method: "sp500",
         },
         {
+          /* 515450 跟踪标普大盘红利低波50。
+           * 股息/PE/PB：持仓加权自建；分位样本≥60日后启用自建，否则暂用 CSIH30269 代理。 */
           code: "515450",
           name: "红利低波",
           ratio: 0.4,
           secid: "1.515450",
           indexCode: "CSIH30269",
           method: "dividend",
+          yieldFromHoldings: true,
         },
         {
           code: "511260",
@@ -2299,6 +2302,376 @@
         if (mirror) return { ...mirror, source: "mirror" };
 
         throw new Error("估值数据获取失败");
+      }
+
+      const ETF_YIELD_CACHE_KEY = "magic_etf_yield_cache";
+      const ETF_YIELD_CACHE_MS = 60 * 60 * 1000;
+      const ETF_HISTORY_KEY = "magic_etf_fund_history";
+      const ETF_HISTORY_MIN = 60;
+      const ETF_HISTORY_MAX = 30 * 252; // 约 30 年交易日，全量约 1–2MB
+
+      function stockSecid(code) {
+        return (String(code).startsWith("6") ? "1." : "0.") + code;
+      }
+
+      function loadEtfYieldCache(code) {
+        try {
+          const all = JSON.parse(
+            localStorage.getItem(ETF_YIELD_CACHE_KEY) || "{}",
+          );
+          const hit = all[code];
+          if (!hit || Date.now() - (hit.ts || 0) > ETF_YIELD_CACHE_MS)
+            return null;
+          return hit.data;
+        } catch {
+          return null;
+        }
+      }
+
+      function saveEtfYieldCache(code, data) {
+        try {
+          const all = JSON.parse(
+            localStorage.getItem(ETF_YIELD_CACHE_KEY) || "{}",
+          );
+          all[code] = { ts: Date.now(), data };
+          localStorage.setItem(ETF_YIELD_CACHE_KEY, JSON.stringify(all));
+        } catch (_) {}
+      }
+
+      function loadLocalEtfHistory(code) {
+        try {
+          const all = JSON.parse(localStorage.getItem(ETF_HISTORY_KEY) || "{}");
+          return all[code] || { code, points: [] };
+        } catch {
+          return { code, points: [] };
+        }
+      }
+
+      function saveLocalEtfHistory(code, hist) {
+        try {
+          const all = JSON.parse(localStorage.getItem(ETF_HISTORY_KEY) || "{}");
+          all[code] = hist;
+          localStorage.setItem(ETF_HISTORY_KEY, JSON.stringify(all));
+        } catch (_) {}
+      }
+
+      /** 合并本地与 Git 发布的历史（按 date 去重，保留较新字段） */
+      function mergeEtfHistoryPoints(basePoints, extraPoints) {
+        const map = new Map();
+        [...(basePoints || []), ...(extraPoints || [])].forEach((p) => {
+          if (!p?.date) return;
+          const prev = map.get(p.date);
+          if (!prev) map.set(p.date, p);
+          else map.set(p.date, { ...prev, ...p });
+        });
+        return [...map.values()].sort((a, b) =>
+          String(a.date).localeCompare(String(b.date)),
+        );
+      }
+
+      async function fetchPublishedEtfHistory(code) {
+        const urls = [
+          `./data/etf_${code}_history.json`,
+          `data/etf_${code}_history.json`,
+        ];
+        for (const url of urls) {
+          try {
+            const r = await fetchWithTimeout(`${url}?_=${Date.now()}`, 6000);
+            if (!r.ok) continue;
+            const j = await r.json();
+            if (Array.isArray(j?.points)) return j;
+          } catch (_) {}
+        }
+        return null;
+      }
+
+      /** 用仓库里的历史种子本地；GitHub Pages 手机端靠这个复用电脑采集结果 */
+      async function seedLocalEtfHistoryFromPublished(code) {
+        const published = await fetchPublishedEtfHistory(code);
+        if (!published?.points?.length) return loadLocalEtfHistory(code);
+        const local = loadLocalEtfHistory(code);
+        const merged = {
+          code,
+          note: published.note || local.note,
+          points: mergeEtfHistoryPoints(published.points, local.points),
+          updated_at: published.updated_at || local.updated_at,
+        };
+        saveLocalEtfHistory(code, merged);
+        return merged;
+      }
+
+      function appendLocalEtfHistory(code, point) {
+        const hist = loadLocalEtfHistory(code);
+        let points = mergeEtfHistoryPoints(hist.points || [], [point]);
+        if (points.length > ETF_HISTORY_MAX)
+          points = points.slice(-ETF_HISTORY_MAX);
+        hist.points = points;
+        hist.code = code;
+        saveLocalEtfHistory(code, hist);
+        return hist;
+      }
+
+      function percentileRank(values, current) {
+        const vals = (values || []).filter((v) => Number.isFinite(Number(v)));
+        if (!vals.length || !Number.isFinite(Number(current))) return null;
+        const cur = Number(current);
+        return vals.filter((v) => Number(v) <= cur).length / vals.length;
+      }
+
+      async function fetchEtfHoldingsMobile(code) {
+        const url =
+          "https://fundmobapi.eastmoney.com/FundMNewApi/FundMNInverstPosition" +
+          `?FCODE=${code}&deviceid=Wap&plat=Wap&product=EFund&version=2.0.0`;
+        const r = await fetchWithTimeout(url, 8000);
+        if (!r.ok) throw new Error("holdings HTTP " + r.status);
+        const j = await r.json();
+        const stocks = j?.Datas?.fundStocks || [];
+        return stocks
+          .map((s) => ({
+            code: String(s.GPDM || ""),
+            name: s.GPJC || "",
+            weight: Number(s.JZBL) || 0,
+          }))
+          .filter((s) => /^\d{6}$/.test(s.code) && s.weight > 0);
+      }
+
+      async function fetchStockFundamentals(codes) {
+        if (!codes.length) return {};
+        const ids = codes.map(stockSecid).join(",");
+        const fields = "f12,f14,f9,f23,f133";
+        const hosts = ["push2delay.eastmoney.com", "push2.eastmoney.com"];
+        let lastErr = null;
+        for (const host of hosts) {
+          try {
+            const r = await fetchWithTimeout(
+              `https://${host}/api/qt/ulist.np/get?fltt=2&secids=${ids}&fields=${fields}`,
+              8000,
+            );
+            if (!r.ok) throw new Error("HTTP " + r.status);
+            const j = await r.json();
+            const rows = j?.data?.diff || [];
+            const out = {};
+            rows.forEach((row) => {
+              const c = String(row.f12 || "");
+              if (!c) return;
+              const item = {};
+              const pe = Number(row.f9);
+              const pb = Number(row.f23);
+              const y = Number(row.f133);
+              if (pe > 0) item.pe = pe;
+              if (pb > 0) item.pb = pb;
+              if (y > 0) item.yield_pct = y;
+              if (item.pe || item.pb || item.yield_pct) out[c] = item;
+            });
+            return out;
+          } catch (e) {
+            lastErr = e;
+          }
+        }
+        throw lastErr || new Error("fundamental quotes failed");
+      }
+
+      function weightedArithmetic(pairs) {
+        let wSum = 0;
+        let vSum = 0;
+        pairs.forEach(([w, v]) => {
+          if (!(w > 0) || !(v > 0)) return;
+          wSum += w;
+          vSum += w * v;
+        });
+        return wSum > 0 ? vSum / wSum : null;
+      }
+
+      function weightedHarmonic(pairs) {
+        let wSum = 0;
+        let den = 0;
+        pairs.forEach(([w, v]) => {
+          if (!(w > 0) || !(v > 0)) return;
+          wSum += w;
+          den += w / v;
+        });
+        return wSum > 0 && den > 0 ? wSum / den : null;
+      }
+
+      async function fetchEtfFundamentalsViaProxy(code) {
+        const proxy = valuationProxyUrl();
+        if (!proxy) return null;
+        try {
+          const base = proxy.replace(/\/?valuation\/?$/, "").replace(/\/$/, "");
+          const ms = isLocalProxy(proxy) ? 5000 : 12000;
+          const r = await fetchWithTimeout(
+            `${base}/etf_fundamentals?code=${encodeURIComponent(code)}`,
+            ms,
+          );
+          if (!r.ok) return null;
+          const j = await r.json();
+          if (!(j?.yeild > 0) && !(j?.pe > 0) && !(j?.pb > 0)) return null;
+          if (isLocalProxy(proxy)) markLocalProxyUp();
+          return j;
+        } catch (_) {
+          return null;
+        }
+      }
+
+      async function computeEtfFundamentalsClient(code) {
+        await seedLocalEtfHistoryFromPublished(code);
+        const holdings = await fetchEtfHoldingsMobile(code);
+        const quotes = await fetchStockFundamentals(
+          holdings.map((h) => h.code),
+        );
+        const pePairs = [];
+        const pbPairs = [];
+        const yPairs = [];
+        holdings.forEach((h) => {
+          const q = quotes[h.code];
+          if (!q) return;
+          if (q.pe > 0) pePairs.push([h.weight, q.pe]);
+          if (q.pb > 0) pbPairs.push([h.weight, q.pb]);
+          if (q.yield_pct > 0) yPairs.push([h.weight, q.yield_pct]);
+        });
+        const pe = weightedHarmonic(pePairs);
+        const pb = weightedArithmetic(pbPairs);
+        const yieldPct = weightedArithmetic(yPairs);
+        if (!(pe > 0) && !(pb > 0) && !(yieldPct > 0))
+          throw new Error("无有效基本面");
+        const coverage = yPairs.length
+          ? yPairs.reduce((s, [w]) => s + w, 0)
+          : pePairs.reduce((s, [w]) => s + w, 0);
+        const today = new Date().toISOString().slice(0, 10);
+        const point = {
+          date: today,
+          pe: pe > 0 ? Math.round(pe * 10000) / 10000 : null,
+          pb: pb > 0 ? Math.round(pb * 10000) / 10000 : null,
+          yeild: yieldPct > 0 ? yieldPct / 100 : null,
+          yield_pct: yieldPct > 0 ? yieldPct : null,
+          coverage_pct: coverage,
+          n: holdings.length,
+        };
+        const hist = appendLocalEtfHistory(code, point);
+        const points = hist.points || [];
+        const peHist = points.map((p) => p.pe).filter((v) => v > 0);
+        const pbHist = points.map((p) => p.pb).filter((v) => v > 0);
+        const peP = point.pe > 0 ? percentileRank(peHist, point.pe) : null;
+        const pbP = point.pb > 0 ? percentileRank(pbHist, point.pb) : null;
+        const nHist = points.length;
+        return {
+          code,
+          date: today,
+          pe: point.pe,
+          pb: point.pb,
+          yeild: point.yeild,
+          yield_pct: point.yield_pct,
+          coverage_pct: point.coverage_pct,
+          n: point.n,
+          pe_percentile: peP,
+          pb_percentile: pbP,
+          history_n: nHist,
+          history_min: ETF_HISTORY_MIN,
+          percentile_ready: nHist >= ETF_HISTORY_MIN,
+          source: "eastmoney-top10+published-history",
+        };
+      }
+
+      /**
+       * GitHub Pages：无本地代理时，用仓库 data/*.json 历史 + 当日行情算分位。
+       * 电脑代理可用时仍走代理（会回写同一份 data 文件）。
+       */
+      async function computeEtfFromPublishedHistory(code) {
+        const hist = await seedLocalEtfHistoryFromPublished(code);
+        const points = hist?.points || [];
+        if (!points.length) return null;
+        const last = points[points.length - 1];
+        const peHist = points.map((p) => p.pe).filter((v) => v > 0);
+        const pbHist = points.map((p) => p.pb).filter((v) => v > 0);
+        const pe = last.pe > 0 ? last.pe : null;
+        const pb = last.pb > 0 ? last.pb : null;
+        const yeild = last.yeild > 0 ? last.yeild : null;
+        if (!(pe > 0) && !(pb > 0) && !(yeild > 0)) return null;
+        const nHist = points.length;
+        return {
+          code,
+          date: last.date,
+          pe,
+          pb,
+          yeild,
+          yield_pct: last.yield_pct ?? (yeild > 0 ? yeild * 100 : null),
+          coverage_pct: last.coverage_pct,
+          n: last.n,
+          pe_percentile: pe > 0 ? percentileRank(peHist, pe) : null,
+          pb_percentile: pb > 0 ? percentileRank(pbHist, pb) : null,
+          history_n: nHist,
+          history_min: ETF_HISTORY_MIN,
+          percentile_ready: nHist >= ETF_HISTORY_MIN,
+          source: "published-history",
+        };
+      }
+
+      async function computeEtfWeightedYield(code) {
+        const cached = loadEtfYieldCache(code);
+        if (cached?.yeild > 0 || cached?.pe > 0) return cached;
+
+        const viaProxy = await fetchEtfFundamentalsViaProxy(code);
+        if (viaProxy && (viaProxy.yeild > 0 || viaProxy.pe > 0)) {
+          saveEtfYieldCache(code, viaProxy);
+          return viaProxy;
+        }
+
+        try {
+          const data = await computeEtfFundamentalsClient(code);
+          saveEtfYieldCache(code, data);
+          return data;
+        } catch (e) {
+          console.warn("持仓加权失败，回退已发布历史", code, e);
+          const published = await computeEtfFromPublishedHistory(code);
+          if (published) {
+            saveEtfYieldCache(code, published);
+            return published;
+          }
+          throw e;
+        }
+      }
+
+      async function applyHoldingsYieldOverlays(map) {
+        const targets = PORTFOLIO.filter(
+          (p) => p.yieldFromHoldings && p.indexCode && map[p.indexCode],
+        );
+        if (!targets.length) return map;
+        const next = { ...map };
+        await Promise.all(
+          targets.map(async (p) => {
+            try {
+              const y = await computeEtfWeightedYield(p.code);
+              if (!y) return;
+              const base = next[p.indexCode];
+              const patched = {
+                ...base,
+                yeild_overlay: "持仓加权",
+                yeild_coverage: y.coverage_pct,
+                yeild_n: y.n,
+                yeild_source: y.source,
+                history_n: y.history_n,
+                history_min: y.history_min ?? ETF_HISTORY_MIN,
+                percentile_ready: !!y.percentile_ready,
+              };
+              if (y.yeild > 0) patched.yeild = y.yeild;
+              if (y.pe > 0) patched.pe = y.pe;
+              if (y.pb > 0) patched.pb = y.pb;
+              if (y.percentile_ready) {
+                if (y.pe_percentile != null)
+                  patched.pe_percentile = y.pe_percentile;
+                if (y.pb_percentile != null)
+                  patched.pb_percentile = y.pb_percentile;
+                patched.yeild_overlay = "自建分位";
+              } else {
+                patched.yeild_overlay = "持仓加权·分位代理";
+              }
+              next[p.indexCode] = patched;
+            } catch (e) {
+              console.warn("ETF基本面覆盖失败", p.code, e);
+            }
+          }),
+        );
+        return next;
       }
 
       function valDataAgeDays(dateStr) {
@@ -3362,7 +3735,7 @@
           : "";
         const proxyHint =
           isLocalAppPage() && valSource === "mirror"
-            ? " · 蛋卷实时：先运行 python3 proxy/valuation.py，再点刷新"
+            ? " · 蛋卷实时：python3 proxy/valuation.py；红利自建分位需攒满60个交易日"
             : "";
         const meta = `${dateStr}${macroStr}${usBondStr}${proxyHint}`;
         const rules = overlayRulesSuffix();
@@ -3812,6 +4185,15 @@
         const peVal = pe != null ? pe.toFixed(1) : "—";
         const pbVal = v.pb ? v.pb.toFixed(2) : "—";
         const roeStr = roe != null ? roe.toFixed(1) : "—";
+        const yieldNote = v.yeild_overlay
+          ? `·${v.yeild_overlay}${
+              v.history_n != null
+                ? `(${v.history_n}/${v.history_min || 60})`
+                : v.yeild_coverage != null
+                  ? `(${Number(v.yeild_coverage).toFixed(0)}%)`
+                  : ""
+            }`
+          : "";
         const metrics =
           valLine(
             valPair("PE", peVal, peP.toFixed(0)),
@@ -3828,7 +4210,7 @@
           div,
           score,
           metrics,
-          detail: `${zone}·股息市净率法 · ROE${roeStr}% · 股债溢价${divPrem.toFixed(1)}%`,
+          detail: `${zone}·股息市净率法${yieldNote} · ROE${roeStr}% · 股债溢价${divPrem.toFixed(1)}%`,
           zone,
         };
       }
@@ -4242,7 +4624,7 @@
       async function loadValuation() {
         try {
           const { map, date, source } = await fetchValuationData();
-          valMap = map;
+          valMap = await applyHoldingsYieldOverlays(map);
           valDate = date;
           valSource = source || "";
           return true;
