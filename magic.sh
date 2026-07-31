@@ -43,7 +43,7 @@ start_etf_auto() {
   chmod +x "$ROOT/scripts/etf_history_auto.sh" 2>/dev/null || true
   nohup "$ROOT/scripts/etf_history_auto.sh" >>"$AUTO_LOG" 2>&1 &
   echo $! >"$AUTO_PID_FILE"
-  echo "✓ 515450 自动采集（交易日 16:00–17:00，每15分钟检查一次；手机仍需 push）"
+  echo "✓ 515450 自动采集（交易日 16:30–17:30，每15分钟检查；当日已有则跳过；手机仍需 push）"
 }
 
 start_proxy() {
@@ -109,7 +109,7 @@ case "$cmd" in
     print_phone_hint
     echo ""
     echo "✓ 电脑已打开（估值应显示 ·蛋卷，否则点刷新）"
-    echo "⏱ 保持此窗口开着：交易日 16:00–17:00 会自动采集 515450 写入本地"
+    echo "⏱ 保持此窗口开着：交易日 16:30–17:30 会自动采集 515450 写入本地"
     echo "⚠ 按回车会停止服务，手机也将无法访问"
     echo ""
     read -r -p "按回车停止代理并关闭此窗口…" _
