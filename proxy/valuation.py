@@ -217,6 +217,9 @@ def append_history_point(code: str, point: dict) -> dict:
     hist = load_history(code)
     points = hist.setdefault("points", [])
     d = point["date"]
+    now = datetime.now().isoformat(timespec="seconds")
+    if not point.get("collected_at"):
+        point = {**point, "collected_at": now}
     points = [p for p in points if p.get("date") != d]
     points.append(point)
     points.sort(key=lambda p: p.get("date") or "")
@@ -225,7 +228,7 @@ def append_history_point(code: str, point: dict) -> dict:
         points = points[-MAX_HISTORY_DAYS:]
     hist["points"] = points
     hist["code"] = code
-    hist["updated_at"] = datetime.now().isoformat(timespec="seconds")
+    hist.pop("updated_at", None)  # 改用各点 collected_at
     save_history(code, hist)
     return hist
 
@@ -278,6 +281,7 @@ def compute_etf_fundamentals(code: str, persist: bool = True) -> dict:
         coverage = sum(w for w, _ in pb_pairs)
 
     today = date.today().isoformat()
+    collected_at = datetime.now().isoformat(timespec="seconds")
     point = {
         "date": today,
         "pe": round(pe, 4) if pe is not None else None,
@@ -286,6 +290,7 @@ def compute_etf_fundamentals(code: str, persist: bool = True) -> dict:
         "yield_pct": round(yield_pct, 4) if yield_pct is not None else None,
         "coverage_pct": round(coverage, 2),
         "n": len(used),
+        "collected_at": collected_at,
     }
 
     hist = append_history_point(code, point) if persist else load_history(code)

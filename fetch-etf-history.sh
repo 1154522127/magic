@@ -46,7 +46,8 @@ def last_point(d):
 
 old, new = load(old_path), load(new_path)
 op, np_ = last_point(old), last_point(new)
-keys = ("date", "pe", "pb", "yield_pct", "coverage_pct", "n")
+keys = ("date", "pe", "pb", "yield_pct", "coverage_pct", "n", "collected_at")
+value_keys = ("date", "pe", "pb", "yield_pct", "coverage_pct", "n")
 
 def fmt(p):
     if not p:
@@ -56,7 +57,6 @@ def fmt(p):
 print()
 print(f"文件: {new_path}")
 print(f"样本数: {len(old.get('points') or [])} → {len(new.get('points') or [])}")
-print(f"updated_at: {old.get('updated_at') or '(无)'} → {new.get('updated_at') or '(无)'}")
 print()
 print("上一份末条:", fmt(op))
 print("本次末条:  ", fmt(np_))
@@ -65,16 +65,19 @@ print()
 if not op and np_:
     print("✓ 首次写入今日数据")
 elif op and np_ and op.get("date") == np_.get("date"):
-    changed = [k for k in keys if op.get(k) != np_.get(k)]
-    if not changed and old.get("updated_at") != new.get("updated_at"):
+    changed = [k for k in value_keys if op.get(k) != np_.get(k)]
+    only_time = not changed and op.get("collected_at") != np_.get("collected_at")
+    if only_time:
         # 同日重采但数值完全一样
-        print("✓ 今日点已存在，数值无变动（仅刷新了 updated_at）")
+        print("✓ 今日点已存在，数值无变动（仅刷新了 collected_at）")
     elif not changed:
         print("✓ 与上一份完全相同")
     else:
         print("⚠ 同日数据有变动：")
         for k in changed:
             print(f"  {k}: {op.get(k)} → {np_.get(k)}")
+        if op.get("collected_at") != np_.get("collected_at"):
+            print(f"  collected_at: {op.get('collected_at')} → {np_.get('collected_at')}")
 elif op and np_ and op.get("date") != np_.get("date"):
     print(f"✓ 新日期点：{op.get('date')} → {np_.get('date')}")
 else:

@@ -2394,7 +2394,6 @@
           code,
           note: published.note || local.note,
           points: mergeEtfHistoryPoints(published.points, local.points),
-          updated_at: published.updated_at || local.updated_at,
         };
         saveLocalEtfHistory(code, merged);
         return merged;
@@ -2402,11 +2401,18 @@
 
       function appendLocalEtfHistory(code, point) {
         const hist = loadLocalEtfHistory(code);
-        let points = mergeEtfHistoryPoints(hist.points || [], [point]);
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, "0");
+        const collected_at =
+          point?.collected_at ||
+          `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+        const withTime = { ...point, collected_at };
+        let points = mergeEtfHistoryPoints(hist.points || [], [withTime]);
         if (points.length > ETF_HISTORY_MAX)
           points = points.slice(-ETF_HISTORY_MAX);
         hist.points = points;
         hist.code = code;
+        delete hist.updated_at;
         saveLocalEtfHistory(code, hist);
         return hist;
       }
@@ -2537,7 +2543,10 @@
         const coverage = yPairs.length
           ? yPairs.reduce((s, [w]) => s + w, 0)
           : pePairs.reduce((s, [w]) => s + w, 0);
-        const today = new Date().toISOString().slice(0, 10);
+        const now = new Date();
+        const pad = (n) => String(n).padStart(2, "0");
+        const today = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+        const collected_at = `${today}T${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
         const point = {
           date: today,
           pe: pe > 0 ? Math.round(pe * 10000) / 10000 : null,
@@ -2546,6 +2555,7 @@
           yield_pct: yieldPct > 0 ? yieldPct : null,
           coverage_pct: coverage,
           n: holdings.length,
+          collected_at,
         };
         const hist = appendLocalEtfHistory(code, point);
         const points = hist.points || [];
