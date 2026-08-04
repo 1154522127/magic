@@ -1,11 +1,11 @@
 .proxy.pid
 .web.pid
-.etf_auto.pid
-.etf_515450_auto_date
 .proxy.log
 .web.log
+.etf_auto.pid
+.etf_515450_auto_date
 .etf_auto.log
 proxy/__pycache__/
 scripts/__pycache__/
-# 工作副本可留本地；正式历史在 data/etf_*_history.json（需提交给手机用）
+# 工作副本可留本地；正式历史在 data/etf_*_history.json（由 Actions 提交）
 proxy/data/

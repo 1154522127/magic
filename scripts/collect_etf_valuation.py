@@ -1,14 +1,9 @@
 #!/usr/bin/env python3
 """采集 515450 持仓加权 PE/PB/股息，写入 data/ 供自建分位与 GitHub Pages。
 
-用法：
+主要由 GitHub Actions 调用；本地也可手动：
     python3 scripts/collect_etf_valuation.py
     python3 scripts/collect_etf_valuation.py 515450
-
-攒够后提交给手机用：
-    git add data/etf_515450_history.json
-    git commit -m "chore: update 515450 valuation history"
-    git push
 """
 
 from __future__ import annotations

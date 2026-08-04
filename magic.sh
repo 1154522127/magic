@@ -11,18 +11,19 @@ WEB_PORT=8765
 APP_URL="http://127.0.0.1:$WEB_PORT/index.html"
 PID_FILE="$ROOT/.proxy.pid"
 WEB_PID_FILE="$ROOT/.web.pid"
-AUTO_PID_FILE="$ROOT/.etf_auto.pid"
 LOG_FILE="$ROOT/.proxy.log"
 WEB_LOG="$ROOT/.web.log"
-AUTO_LOG="$ROOT/.etf_auto.log"
 
 lan_ip() {
   ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true
 }
 
 stop_services() {
-  [ -f "$AUTO_PID_FILE" ] && kill "$(cat "$AUTO_PID_FILE")" 2>/dev/null || true
-  rm -f "$AUTO_PID_FILE"
+  # 兼容：若仍有旧版自动采集进程，一并停掉
+  if [ -f "$ROOT/.etf_auto.pid" ]; then
+    kill "$(cat "$ROOT/.etf_auto.pid")" 2>/dev/null || true
+    rm -f "$ROOT/.etf_auto.pid"
+  fi
 
   [ -f "$PID_FILE" ] && kill "$(cat "$PID_FILE")" 2>/dev/null || true
   rm -f "$PID_FILE"
@@ -32,18 +33,7 @@ stop_services() {
   rm -f "$WEB_PID_FILE"
   lsof -ti ":$WEB_PORT" | xargs kill 2>/dev/null || true
 
-  echo "✓ 蛋卷代理、本地网页与自动采集已停止"
-}
-
-start_etf_auto() {
-  if [ -f "$AUTO_PID_FILE" ] && kill -0 "$(cat "$AUTO_PID_FILE")" 2>/dev/null; then
-    echo "✓ 515450 收盘自动采集已在运行"
-    return 0
-  fi
-  chmod +x "$ROOT/scripts/etf_history_auto.sh" 2>/dev/null || true
-  nohup "$ROOT/scripts/etf_history_auto.sh" >>"$AUTO_LOG" 2>&1 &
-  echo $! >"$AUTO_PID_FILE"
-  echo "✓ 515450 自动采集（交易日 17:30–18:00，每5分钟检查；当日已有则跳过；手机仍需 push）"
+  echo "✓ 蛋卷代理与本地网页已停止"
 }
 
 start_proxy() {
@@ -96,7 +86,6 @@ case "$cmd" in
   bg)
     start_proxy
     start_web
-    start_etf_auto
     print_phone_hint
     echo ""
     echo "✓ 已在后台运行；停止请执行: ./magic.sh stop"
@@ -104,12 +93,11 @@ case "$cmd" in
   start)
     start_proxy
     start_web
-    start_etf_auto
     open "$APP_URL"
     print_phone_hint
     echo ""
     echo "✓ 电脑已打开（估值应显示 ·蛋卷，否则点刷新）"
-    echo "⏱ 保持此窗口开着：交易日 17:30–18:00 会自动采集 515450 写入本地"
+    echo "ℹ 515450 历史由 GitHub Actions 交易日 22:00–24:00 自动采集推送"
     echo "⚠ 按回车会停止服务，手机也将无法访问"
     echo ""
     read -r -p "按回车停止代理并关闭此窗口…" _

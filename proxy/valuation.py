@@ -9,8 +9,7 @@
   /etf_yield?code=515450  → 兼容旧接口（股息）
   /etf_fundamentals?code=515450 → 持仓加权 PE/PB/股息 + 自建历史分位
 
-历史写入仓库 data/etf_*_history.json；commit + push 后 GitHub Pages 手机端可直接读取。
-每日打开页面或跑 scripts/collect_etf_valuation.py 会追加一条。
+历史写入仓库 data/etf_*_history.json；由 GitHub Actions 交易日夜间采集并推送，Pages 手机端可直接读取。
 分位样本 < MIN_HISTORY_DAYS 时 percentile_ready=false，前端继续用蛋卷代理分位。
 """
 
@@ -396,7 +395,7 @@ class Handler(BaseHTTPRequestHandler):
                 send_json(self, 400, {"error": "invalid code"})
                 return
             # 页面刷新默认不落盘，避免盘中把「今天」写成早盘值；
-            # 收盘后由 magic 守护进程 / collect 脚本 persist=True 写入。
+            # 正式历史由 GitHub Actions 写入；本地仅在 ?persist=1 时落盘。
             persist = (qs.get("persist") or ["0"])[0] in ("1", "true", "yes")
             try:
                 if path == "/etf_fundamentals":
