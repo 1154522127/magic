@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """采集 515450 持仓加权 PE/PB/股息，写入 data/ 供自建分位与 GitHub Pages。
 
-主要由 GitHub Actions 调用；本地也可手动：
+本地 magic 运行时在交易日 17:08 / 17:28 自动调用；夜间 GitHub Actions 兜底。
+也可手动：
     python3 scripts/collect_etf_valuation.py
     python3 scripts/collect_etf_valuation.py 515450
 """
