@@ -63,38 +63,82 @@ def stock_secid(code: str) -> str:
     return ("1." if code.startswith("6") else "0.") + code
 
 
-def parse_f10_holdings(code: str) -> list[dict]:
+def _strip_tags(s: str) -> str:
+    return re.sub(r"<[^>]+>", "", s).strip()
+
+
+# 季报通常只披前十；年报/半年报才有全量。优先选权重合计≥此阈值的一期。
+FULL_HOLDINGS_WEIGHT_MIN = 90.0
+FULL_HOLDINGS_COUNT_MIN = 40
+
+
+def _parse_f10_content(content: str) -> list[dict]:
+    """按表头解析各报告期持仓表，返回 [{date, rows, weight_sum}, ...]。"""
+    parts = re.findall(
+        r"<h4 class='t'>(.*?)</h4>.*?<table[^>]*>(.*?)</table>",
+        content,
+        re.S,
+    )
+    tables: list[dict] = []
+    for h4, table in parts:
+        title = _strip_tags(h4)
+        dm = re.search(r"(\d{4}-\d{2}-\d{2})", title)
+        date = dm.group(1) if dm else ""
+        ths = [_strip_tags(t) for t in re.findall(r"<th[^>]*>(.*?)</th>", table, re.S)]
+        if "股票代码" not in ths or "占净值比例" not in ths:
+            continue
+        ccol, ncol, wcol = (
+            ths.index("股票代码"),
+            ths.index("股票名称"),
+            ths.index("占净值比例"),
+        )
+        rows: list[dict] = []
+        seen: set[str] = set()
+        for tr in re.findall(r"<tr>(.*?)</tr>", table, re.S):
+            tds = [_strip_tags(td) for td in re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)]
+            if len(tds) <= max(ccol, ncol, wcol):
+                continue
+            scode = tds[ccol]
+            if not re.fullmatch(r"\d{6}", scode) or scode in seen:
+                continue
+            wraw = tds[wcol]
+            if not re.fullmatch(r"[0-9.]+%", wraw):
+                continue
+            weight = float(wraw[:-1])
+            if weight <= 0:
+                continue
+            seen.add(scode)
+            rows.append({"code": scode, "name": tds[ncol], "weight": weight})
+        if rows:
+            tables.append(
+                {
+                    "date": date,
+                    "rows": rows,
+                    "weight_sum": sum(r["weight"] for r in rows),
+                }
+            )
+    return tables
+
+
+def _fetch_f10_page(code: str, year: str = "", month: str = "") -> tuple[list[dict], list[int]]:
     url = (
         "https://fundf10.eastmoney.com/FundArchivesDatas.aspx"
-        f"?type=jjcc&code={code}&topline=100&year=&month="
+        f"?type=jjcc&code={code}&topline=100&year={year}&month={month}"
     )
     text = http_get(url, "https://fundf10.eastmoney.com/").decode("utf-8", "replace")
     m = re.search(r'content:"((?:[^"\\]|\\.)*)"', text)
     if not m:
-        return []
+        return [], []
     content = m.group(1).replace('\\"', '"').replace("\\/", "/")
-    out: list[dict] = []
-    seen: set[str] = set()
-    for tr in re.findall(r"<tr>(.*?)</tr>", content, re.S):
-        tds = re.findall(r"<td[^>]*>(.*?)</td>", tr, re.S)
-        if len(tds) < 7:
-            continue
-        scode = re.sub(r"<[^>]+>", "", tds[1]).strip()
-        name = re.sub(r"<[^>]+>", "", tds[2]).strip()
-        wraw = None
-        for td in tds:
-            plain = re.sub(r"<[^>]+>", "", td).strip()
-            if re.fullmatch(r"[0-9.]+%", plain):
-                wraw = plain
-                break
-        if not (scode.isdigit() and wraw):
-            continue
-        weight = float(wraw.rstrip("%"))
-        if weight <= 0 or scode in seen:
-            continue
-        seen.add(scode)
-        out.append({"code": scode, "name": name, "weight": weight})
-    return out
+    ym = re.search(r"arryear:(\[[^\]]+\])", text)
+    years = json.loads(ym.group(1)) if ym else []
+    return _parse_f10_content(content), years
+
+
+def parse_f10_holdings(code: str) -> list[dict]:
+    """兼容旧接口：返回最优一期持仓行（不含报告期元数据）。"""
+    holdings, _ = resolve_holdings(code)
+    return holdings
 
 
 def parse_mobile_holdings(code: str) -> list[dict]:
@@ -130,42 +174,101 @@ def merge_holdings(*groups: list[dict]) -> list[dict]:
     return sorted(best.values(), key=lambda x: -x["weight"])
 
 
+def _is_full_holdings(weight_sum: float, n: int) -> bool:
+    return weight_sum >= FULL_HOLDINGS_WEIGHT_MIN and n >= FULL_HOLDINGS_COUNT_MIN
+
+
+def resolve_holdings(code: str) -> tuple[list[dict], str | None]:
+    """取最近一期「全量披露」持仓；若当年仅有季报前十，回退到上年年报/半年报。
+
+    返回 (holdings, holdings_asof)。权重来自定期报告，估值用当日行情。
+    """
+    _, years = _fetch_f10_page(code, "", "")
+    if not years:
+        years = [date.today().year, date.today().year - 1]
+
+    candidates: list[dict] = []
+    seen_dates: set[str] = set()
+    for year in years[:4]:
+        tables, _ = _fetch_f10_page(code, str(year), "")
+        for t in tables:
+            d = t.get("date") or ""
+            if d in seen_dates:
+                continue
+            seen_dates.add(d)
+            candidates.append(t)
+
+    if not candidates:
+        mobile = parse_mobile_holdings(code)
+        return mobile, None
+
+    full = [t for t in candidates if _is_full_holdings(t["weight_sum"], len(t["rows"]))]
+    pool = full or candidates
+    best = max(
+        pool,
+        key=lambda t: (
+            t.get("date") or "",
+            t["weight_sum"],
+            len(t["rows"]),
+        ),
+    )
+    rows = sorted(best["rows"], key=lambda x: -x["weight"])
+    # 全量不足时再用手机端十大补洞（不应覆盖已有权重）
+    if not _is_full_holdings(best["weight_sum"], len(rows)):
+        have = {r["code"] for r in rows}
+        for r in parse_mobile_holdings(code):
+            if r["code"] not in have:
+                rows.append(r)
+        rows = sorted(rows, key=lambda x: -x["weight"])
+    return rows, best.get("date") or None
+
+
 def quote_fundamentals(codes: list[str]) -> dict[str, dict]:
-    """东财：f9≈PE，f23≈PB，f133≈股息率(%)。"""
+    """东财：f9≈PE，f23≈PB，f133≈股息率(%)。超长列表分批。"""
     if not codes:
         return {}
-    ids = ",".join(stock_secid(c) for c in codes)
-    fields = "f12,f14,f9,f23,f133"
-    last_err = None
-    for host in ("push2delay.eastmoney.com", "push2.eastmoney.com"):
-        url = f"https://{host}/api/qt/ulist.np/get?fltt=2&secids={ids}&fields={fields}"
-        try:
-            data = json.loads(
-                http_get(url, "https://quote.eastmoney.com/").decode("utf-8", "replace")
-            )
-            rows = ((data.get("data") or {}).get("diff")) or []
-            out: dict[str, dict] = {}
-            for row in rows:
-                code = str(row.get("f12") or "")
-                if not code:
-                    continue
-                item: dict = {}
-                pe = row.get("f9")
-                pb = row.get("f23")
-                yld = row.get("f133")
-                if isinstance(pe, (int, float)) and pe > 0:
-                    item["pe"] = float(pe)
-                if isinstance(pb, (int, float)) and pb > 0:
-                    item["pb"] = float(pb)
-                if isinstance(yld, (int, float)) and yld > 0:
-                    item["yield_pct"] = float(yld)
-                if item:
-                    out[code] = item
-            return out
-        except (URLError, HTTPError, TimeoutError, json.JSONDecodeError) as e:
-            last_err = e
-            continue
-    raise RuntimeError(f"quote failed: {last_err}")
+    out: dict[str, dict] = {}
+    chunk_size = 80
+    for i in range(0, len(codes), chunk_size):
+        chunk = codes[i : i + chunk_size]
+        ids = ",".join(stock_secid(c) for c in chunk)
+        fields = "f12,f14,f9,f23,f133"
+        last_err = None
+        got = None
+        for host in ("push2delay.eastmoney.com", "push2.eastmoney.com"):
+            url = f"https://{host}/api/qt/ulist.np/get?fltt=2&secids={ids}&fields={fields}"
+            try:
+                data = json.loads(
+                    http_get(url, "https://quote.eastmoney.com/").decode(
+                        "utf-8", "replace"
+                    )
+                )
+                rows = ((data.get("data") or {}).get("diff")) or []
+                got = {}
+                for row in rows:
+                    c = str(row.get("f12") or "")
+                    if not c:
+                        continue
+                    item: dict = {}
+                    pe = row.get("f9")
+                    pb = row.get("f23")
+                    yld = row.get("f133")
+                    if isinstance(pe, (int, float)) and pe > 0:
+                        item["pe"] = float(pe)
+                    if isinstance(pb, (int, float)) and pb > 0:
+                        item["pb"] = float(pb)
+                    if isinstance(yld, (int, float)) and yld > 0:
+                        item["yield_pct"] = float(yld)
+                    if item:
+                        got[c] = item
+                break
+            except (URLError, HTTPError, TimeoutError, json.JSONDecodeError) as e:
+                last_err = e
+                continue
+        if got is None:
+            raise RuntimeError(f"quote failed: {last_err}")
+        out.update(got)
+    return out
 
 
 def weighted_arithmetic(pairs: list[tuple[float, float]]) -> float | None:
@@ -198,10 +301,12 @@ def _history_note() -> str:
     if DATA_DIR.resolve() == (REPO_ROOT / "data").resolve():
         return (
             "515450持仓加权近似·标普大盘红利低波50；非官方指数点位。"
+            "权重取最近一期年报/半年报全量持仓，估值用当日行情。"
             "正式历史由 Cloudflare Worker 交易日 22:08/22:38/23:08/23:38 采集推送。"
         )
     return (
         "515450持仓加权近似·标普大盘红利低波50；非官方指数点位。"
+        "权重取最近一期年报/半年报全量持仓，估值用当日行情。"
         "本机 magic 兜底（17:08/17:28），与正式 data/ 隔离，不进 git。"
     )
 
@@ -243,7 +348,7 @@ def append_history_point(code: str, point: dict) -> dict:
     now = datetime.now().isoformat(timespec="seconds")
     if not point.get("collected_at"):
         point = {**point, "collected_at": now}
-    # 与正式历史同一字段：date/pe/pb/yeild/yield_pct/coverage_pct/n/collected_at
+    # 与正式历史同一字段：date/pe/pb/yeild/yield_pct/coverage_pct/n/holdings_asof/collected_at
     point = {
         "date": point["date"],
         "pe": point.get("pe"),
@@ -252,10 +357,21 @@ def append_history_point(code: str, point: dict) -> dict:
         "yield_pct": point.get("yield_pct"),
         "coverage_pct": point.get("coverage_pct"),
         "n": point.get("n"),
+        "holdings_asof": point.get("holdings_asof"),
         "collected_at": point["collected_at"],
     }
     points = [p for p in points if p.get("date") != d]
     points.append(point)
+    # 全量持仓启用后，丢掉旧的「仅前十/半仓」样本，避免污染自建分位
+    if (point.get("n") or 0) >= FULL_HOLDINGS_COUNT_MIN or (
+        point.get("coverage_pct") or 0
+    ) >= FULL_HOLDINGS_WEIGHT_MIN:
+        points = [
+            p
+            for p in points
+            if (p.get("n") or 0) >= FULL_HOLDINGS_COUNT_MIN
+            or (p.get("coverage_pct") or 0) >= FULL_HOLDINGS_WEIGHT_MIN
+        ]
     points.sort(key=lambda p: p.get("date") or "")
     if len(points) > MAX_HISTORY_DAYS:
         points = points[-MAX_HISTORY_DAYS:]
@@ -274,7 +390,7 @@ def percentile_rank(values: list[float], current: float) -> float | None:
 
 
 def compute_etf_fundamentals(code: str, persist: bool = True) -> dict:
-    holdings = merge_holdings(parse_f10_holdings(code), parse_mobile_holdings(code))
+    holdings, holdings_asof = resolve_holdings(code)
     if not holdings:
         raise RuntimeError("no holdings")
     quotes = quote_fundamentals([h["code"] for h in holdings])
@@ -322,6 +438,7 @@ def compute_etf_fundamentals(code: str, persist: bool = True) -> dict:
         "yield_pct": round(yield_pct, 4) if yield_pct is not None else None,
         "coverage_pct": round(coverage, 2),
         "n": len(used),
+        "holdings_asof": holdings_asof,
         "collected_at": collected_at,
     }
 
@@ -342,6 +459,7 @@ def compute_etf_fundamentals(code: str, persist: bool = True) -> dict:
     )
     n_hist = len(points)
     ready = n_hist >= MIN_HISTORY_DAYS
+    weight_sum = round(sum(h["weight"] for h in holdings), 2)
 
     return {
         "code": code,
@@ -352,13 +470,18 @@ def compute_etf_fundamentals(code: str, persist: bool = True) -> dict:
         "yield_pct": point["yield_pct"],
         "coverage_pct": point["coverage_pct"],
         "n": point["n"],
+        "holdings_asof": holdings_asof,
+        "holdings_weight_sum": weight_sum,
         "pe_percentile": round(pe_p, 6) if pe_p is not None else None,
         "pb_percentile": round(pb_p, 6) if pb_p is not None else None,
         "history_n": n_hist,
         "history_min": MIN_HISTORY_DAYS,
         "percentile_ready": ready,
-        "source": "eastmoney-holdings+self-history",
-        "note": "持仓加权近似，非标普官方指数点；分位样本不足时勿单独使用",
+        "source": "eastmoney-full-holdings+self-history",
+        "note": (
+            "持仓加权近似（最近全量定期报告权重×当日行情），非标普官方指数点；"
+            "分位样本不足时勿单独使用"
+        ),
         "holdings": used[:20],
     }
 

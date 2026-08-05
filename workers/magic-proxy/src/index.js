@@ -38,6 +38,9 @@ const ALLOWED_PROXY_HOSTS = new Set([
 const MIN_HISTORY_DAYS = 60;
 const MAX_HISTORY_DAYS = 30 * 252;
 const DEFAULT_CODE = "515450";
+/** 季报通常只披前十；年报/半年报才有全量。 */
+const FULL_HOLDINGS_WEIGHT_MIN = 90;
+const FULL_HOLDINGS_COUNT_MIN = 40;
 
 function corsHeaders() {
   return {
@@ -100,36 +103,67 @@ function stripTags(s) {
   return String(s).replace(/<[^>]+>/g, "").trim();
 }
 
-async function parseF10Holdings(code) {
+function parseF10Content(content) {
+  const tables = [];
+  for (const part of content.matchAll(
+    /<h4 class='t'>(.*?)<\/h4>[\s\S]*?<table[^>]*>(.*?)<\/table>/g,
+  )) {
+    const title = stripTags(part[1]);
+    const dm = title.match(/(\d{4}-\d{2}-\d{2})/);
+    const date = dm ? dm[1] : "";
+    const table = part[2];
+    const ths = [...table.matchAll(/<th[^>]*>(.*?)<\/th>/gs)].map((x) =>
+      stripTags(x[1]),
+    );
+    const ccol = ths.indexOf("股票代码");
+    const ncol = ths.indexOf("股票名称");
+    const wcol = ths.indexOf("占净值比例");
+    if (ccol < 0 || ncol < 0 || wcol < 0) continue;
+    const rows = [];
+    const seen = new Set();
+    for (const trMatch of table.matchAll(/<tr>(.*?)<\/tr>/gs)) {
+      const tds = [...trMatch[1].matchAll(/<td[^>]*>(.*?)<\/td>/gs)].map((x) =>
+        stripTags(x[1]),
+      );
+      if (tds.length <= Math.max(ccol, ncol, wcol)) continue;
+      const scode = tds[ccol];
+      if (!/^\d{6}$/.test(scode) || seen.has(scode)) continue;
+      const wraw = tds[wcol];
+      if (!/^[0-9.]+%$/.test(wraw)) continue;
+      const weight = parseFloat(wraw);
+      if (!(weight > 0)) continue;
+      seen.add(scode);
+      rows.push({ code: scode, name: tds[ncol], weight });
+    }
+    if (rows.length) {
+      tables.push({
+        date,
+        rows,
+        weight_sum: rows.reduce((s, r) => s + r.weight, 0),
+      });
+    }
+  }
+  return tables;
+}
+
+async function fetchF10Page(code, year = "", month = "") {
   const url =
     "https://fundf10.eastmoney.com/FundArchivesDatas.aspx" +
-    `?type=jjcc&code=${code}&topline=100&year=&month=`;
+    `?type=jjcc&code=${code}&topline=100&year=${year}&month=${month}`;
   const text = await httpText(url, { Referer: "https://fundf10.eastmoney.com/" });
   const m = text.match(/content:"((?:[^"\\]|\\.)*)"/);
-  if (!m) return [];
+  if (!m) return { tables: [], years: [] };
   const content = m[1].replace(/\\"/g, '"').replace(/\\\//g, "/");
-  const out = [];
-  const seen = new Set();
-  for (const trMatch of content.matchAll(/<tr>(.*?)<\/tr>/gs)) {
-    const tds = [...trMatch[1].matchAll(/<td[^>]*>(.*?)<\/td>/gs)].map((x) => x[1]);
-    if (tds.length < 7) continue;
-    const scode = stripTags(tds[1]);
-    const name = stripTags(tds[2]);
-    let wraw = null;
-    for (const td of tds) {
-      const plain = stripTags(td);
-      if (/^[0-9.]+%$/.test(plain)) {
-        wraw = plain;
-        break;
-      }
+  const ym = text.match(/arryear:(\[[^\]]+\])/);
+  let years = [];
+  if (ym) {
+    try {
+      years = JSON.parse(ym[1]);
+    } catch {
+      years = [];
     }
-    if (!/^\d{6}$/.test(scode) || !wraw) continue;
-    const weight = parseFloat(wraw);
-    if (!(weight > 0) || seen.has(scode)) continue;
-    seen.add(scode);
-    out.push({ code: scode, name, weight });
   }
-  return out;
+  return { tables: parseF10Content(content), years };
 }
 
 async function parseMobileHoldings(code) {
@@ -149,43 +183,89 @@ async function parseMobileHoldings(code) {
   return out;
 }
 
-function mergeHoldings(...groups) {
-  const best = new Map();
-  for (const group of groups) {
-    for (const row of group) {
-      const prev = best.get(row.code);
-      if (!prev || row.weight > prev.weight) best.set(row.code, row);
+function isFullHoldings(weightSum, n) {
+  return weightSum >= FULL_HOLDINGS_WEIGHT_MIN && n >= FULL_HOLDINGS_COUNT_MIN;
+}
+
+async function resolveHoldings(code) {
+  const first = await fetchF10Page(code, "", "");
+  let years = first.years;
+  if (!years.length) {
+    const y = new Date().getFullYear();
+    years = [y, y - 1];
+  }
+  const candidates = [];
+  const seenDates = new Set();
+  for (const year of years.slice(0, 4)) {
+    const { tables } = await fetchF10Page(code, String(year), "");
+    for (const t of tables) {
+      const d = t.date || "";
+      if (seenDates.has(d)) continue;
+      seenDates.add(d);
+      candidates.push(t);
     }
   }
-  return [...best.values()].sort((a, b) => b.weight - a.weight);
+  if (!candidates.length) {
+    return { holdings: await parseMobileHoldings(code), holdings_asof: null };
+  }
+  const full = candidates.filter((t) =>
+    isFullHoldings(t.weight_sum, t.rows.length),
+  );
+  const pool = full.length ? full : candidates;
+  const best = pool.reduce((a, b) => {
+    if ((b.date || "") !== (a.date || "")) {
+      return (b.date || "") > (a.date || "") ? b : a;
+    }
+    if (b.weight_sum !== a.weight_sum) {
+      return b.weight_sum > a.weight_sum ? b : a;
+    }
+    return b.rows.length > a.rows.length ? b : a;
+  });
+  let rows = [...best.rows].sort((a, b) => b.weight - a.weight);
+  if (!isFullHoldings(best.weight_sum, rows.length)) {
+    const have = new Set(rows.map((r) => r.code));
+    for (const r of await parseMobileHoldings(code)) {
+      if (!have.has(r.code)) rows.push(r);
+    }
+    rows = rows.sort((a, b) => b.weight - a.weight);
+  }
+  return { holdings: rows, holdings_asof: best.date || null };
 }
 
 async function quoteFundamentals(codes) {
   if (!codes.length) return {};
-  const ids = codes.map(stockSecid).join(",");
-  const fields = "f12,f14,f9,f23,f133";
-  let lastErr;
-  for (const host of ["push2delay.eastmoney.com", "push2.eastmoney.com"]) {
-    const url = `https://${host}/api/qt/ulist.np/get?fltt=2&secids=${ids}&fields=${fields}`;
-    try {
-      const data = await httpJson(url, { Referer: "https://quote.eastmoney.com/" });
-      const rows = data?.data?.diff || [];
-      const out = {};
-      for (const row of rows) {
-        const code = String(row.f12 || "");
-        if (!code) continue;
-        const item = {};
-        if (typeof row.f9 === "number" && row.f9 > 0) item.pe = row.f9;
-        if (typeof row.f23 === "number" && row.f23 > 0) item.pb = row.f23;
-        if (typeof row.f133 === "number" && row.f133 > 0) item.yield_pct = row.f133;
-        if (Object.keys(item).length) out[code] = item;
+  const out = {};
+  const chunkSize = 80;
+  for (let i = 0; i < codes.length; i += chunkSize) {
+    const chunk = codes.slice(i, i + chunkSize);
+    const ids = chunk.map(stockSecid).join(",");
+    const fields = "f12,f14,f9,f23,f133";
+    let lastErr;
+    let got = null;
+    for (const host of ["push2delay.eastmoney.com", "push2.eastmoney.com"]) {
+      const url = `https://${host}/api/qt/ulist.np/get?fltt=2&secids=${ids}&fields=${fields}`;
+      try {
+        const data = await httpJson(url, { Referer: "https://quote.eastmoney.com/" });
+        const rows = data?.data?.diff || [];
+        got = {};
+        for (const row of rows) {
+          const code = String(row.f12 || "");
+          if (!code) continue;
+          const item = {};
+          if (typeof row.f9 === "number" && row.f9 > 0) item.pe = row.f9;
+          if (typeof row.f23 === "number" && row.f23 > 0) item.pb = row.f23;
+          if (typeof row.f133 === "number" && row.f133 > 0) item.yield_pct = row.f133;
+          if (Object.keys(item).length) got[code] = item;
+        }
+        break;
+      } catch (e) {
+        lastErr = e;
       }
-      return out;
-    } catch (e) {
-      lastErr = e;
     }
+    if (!got) throw new Error(`quote failed: ${lastErr}`);
+    Object.assign(out, got);
   }
-  throw new Error(`quote failed: ${lastErr}`);
+  return out;
 }
 
 function weightedArithmetic(pairs) {
@@ -210,7 +290,9 @@ function historyKey(code) {
 function emptyHistory(code) {
   return {
     code,
-    note: "515450持仓加权近似·标普大盘红利低波50；非官方指数点位。由 Cloudflare Worker 定时采集。",
+    note:
+      "515450持仓加权近似·标普大盘红利低波50；非官方指数点位。" +
+      "权重取最近一期年报/半年报全量持仓，估值用当日行情。由 Cloudflare Worker 定时采集。",
     points: [],
   };
 }
@@ -232,7 +314,8 @@ async function saveHistory(env, code, hist) {
   hist.code = code;
   hist.note =
     hist.note ||
-    "515450持仓加权近似·标普大盘红利低波50；非官方指数点位。由 Cloudflare Worker 定时采集。";
+    "515450持仓加权近似·标普大盘红利低波50；非官方指数点位。" +
+      "权重取最近一期年报/半年报全量持仓，估值用当日行情。由 Cloudflare Worker 定时采集。";
   await env.HISTORY.put(historyKey(code), JSON.stringify(hist));
 }
 
@@ -241,6 +324,17 @@ async function appendHistoryPoint(env, code, point) {
   const d = point.date;
   let points = (hist.points || []).filter((p) => p.date !== d);
   points.push(point);
+  // 全量持仓启用后，丢掉旧的「仅前十/半仓」样本，避免污染自建分位
+  if (
+    (point.n || 0) >= FULL_HOLDINGS_COUNT_MIN ||
+    (point.coverage_pct || 0) >= FULL_HOLDINGS_WEIGHT_MIN
+  ) {
+    points = points.filter(
+      (p) =>
+        (p.n || 0) >= FULL_HOLDINGS_COUNT_MIN ||
+        (p.coverage_pct || 0) >= FULL_HOLDINGS_WEIGHT_MIN,
+    );
+  }
   points.sort((a, b) => String(a.date).localeCompare(String(b.date)));
   if (points.length > MAX_HISTORY_DAYS) points = points.slice(-MAX_HISTORY_DAYS);
   hist.points = points;
@@ -268,10 +362,7 @@ async function isCnTradingDay(day) {
 }
 
 async function computeEtfFundamentals(env, code, persist) {
-  const holdings = mergeHoldings(
-    await parseF10Holdings(code),
-    await parseMobileHoldings(code),
-  );
+  const { holdings, holdings_asof } = await resolveHoldings(code);
   if (!holdings.length) throw new Error("no holdings");
   const quotes = await quoteFundamentals(holdings.map((h) => h.code));
 
@@ -316,6 +407,7 @@ async function computeEtfFundamentals(env, code, persist) {
     yield_pct: yieldPct != null ? Math.round(yieldPct * 10000) / 10000 : null,
     coverage_pct: Math.round(coverage * 100) / 100,
     n: used.length,
+    holdings_asof,
     collected_at,
   };
 
@@ -328,6 +420,8 @@ async function computeEtfFundamentals(env, code, persist) {
   const peP = point.pe != null ? percentileRank(peHist, point.pe) : null;
   const pbP = point.pb != null ? percentileRank(pbHist, point.pb) : null;
   const nHist = points.length;
+  const weightSum =
+    Math.round(holdings.reduce((s, h) => s + h.weight, 0) * 100) / 100;
 
   return {
     code,
@@ -338,13 +432,15 @@ async function computeEtfFundamentals(env, code, persist) {
     yield_pct: point.yield_pct,
     coverage_pct: point.coverage_pct,
     n: point.n,
+    holdings_asof,
+    holdings_weight_sum: weightSum,
     pe_percentile: peP != null ? Math.round(peP * 1e6) / 1e6 : null,
     pb_percentile: pbP != null ? Math.round(pbP * 1e6) / 1e6 : null,
     history_n: nHist,
     history_min: MIN_HISTORY_DAYS,
     percentile_ready: nHist >= MIN_HISTORY_DAYS,
-    source: "eastmoney-holdings+self-history",
-    note: "持仓加权近似，非标普官方指数点；分位样本不足时勿单独使用",
+    source: "eastmoney-full-holdings+self-history",
+    note: "持仓加权近似（最近全量定期报告权重×当日行情），非标普官方指数点；分位样本不足时勿单独使用",
     holdings: used.slice(0, 20),
   };
 }
