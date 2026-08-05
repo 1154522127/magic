@@ -395,7 +395,7 @@ class Handler(BaseHTTPRequestHandler):
                 send_json(self, 400, {"error": "invalid code"})
                 return
             # 页面刷新默认不落盘，避免盘中把「今天」写成早盘值；
-            # 正式历史由 GitHub Actions 写入；本地仅在 ?persist=1 时落盘。
+            # 正式历史由 Cloudflare / 本机兜底写入；仅在 ?persist=1 时落盘。
             persist = (qs.get("persist") or ["0"])[0] in ("1", "true", "yes")
             try:
                 if path == "/etf_fundamentals":
