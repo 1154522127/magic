@@ -86,24 +86,35 @@
         font-weight: 700;
         white-space: nowrap;
       }
-      .topbar-right {
-        margin-left: auto;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        flex-wrap: wrap;
-        justify-content: flex-end;
+      /* 电脑端：用 contents 让子项参与顶栏排布 → 模式|长激进|金额|说明|状态 */
+      .topbar-controls {
+        display: contents;
+      }
+      /* 电脑端顺序：1 金额 → 2 激进 → 3 配仓模式 → 状态/刷新 */
+      .amount-wrap {
+        order: 1;
+      }
+      .aggro-wrap {
+        order: 2;
+      }
+      .mode-toggle {
+        order: 3;
+        flex: 0 0 auto;
       }
       .topbar-meta {
+        order: 4;
         display: flex;
         align-items: center;
         gap: 8px;
+        margin-left: auto;
+        flex-shrink: 0;
       }
 
       .amount-wrap {
         display: flex;
         align-items: center;
         gap: 8px;
+        flex: 0 0 auto;
       }
       .amount-wrap label {
         color: var(--muted);
@@ -113,6 +124,7 @@
 
       .amount-stepper {
         display: flex;
+        flex-direction: row;
         align-items: center;
         gap: 0;
         box-sizing: border-box;
@@ -122,6 +134,13 @@
         border-radius: 8px;
         padding: 0;
         overflow: hidden;
+      }
+      .amount-stepper-main {
+        display: flex;
+        align-items: center;
+        flex: 0 0 auto;
+        height: 100%;
+        min-width: 0;
       }
 
       .amount-step {
@@ -179,12 +198,22 @@
         font-variant-numeric: tabular-nums;
       }
 
+      /* 电脑端还原：说明单独一格，不塞进加减框 */
       .amount-live {
+        display: inline-flex;
+        align-items: center;
+        height: 32px;
+        box-sizing: border-box;
         font-size: 0.72rem;
         font-weight: 500;
         color: var(--muted);
         white-space: nowrap;
         font-variant-numeric: tabular-nums;
+        padding: 0 10px;
+        line-height: 1.2;
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 8px;
       }
       .amount-live.empty {
         color: var(--muted);
@@ -292,30 +321,51 @@
       .mode-btn:hover:not(.active) {
         color: var(--text);
       }
-      .aggro-control {
-        display: inline-flex;
+      /* 电脑端：与金额/模式/刷新统一 32px 单行高度 */
+      .aggro-wrap {
+        display: flex;
+        flex-direction: row;
         align-items: center;
-        gap: 6px;
+        gap: 0;
+        flex: 1 1 240px;
+        min-width: 200px;
+        max-width: 420px;
         height: 32px;
-        padding: 0 8px;
+        padding: 0 10px;
         border: 1px solid var(--border);
         border-radius: 8px;
         background: var(--surface);
         box-sizing: border-box;
-        white-space: nowrap;
+        overflow: hidden;
       }
-      .aggro-control.disabled {
+      .aggro-wrap.disabled {
         opacity: 0.45;
         pointer-events: none;
+      }
+      .aggro-control {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        height: 100%;
+        width: 100%;
+        padding: 0;
+        border: none;
+        border-radius: 0;
+        background: transparent;
+        box-sizing: border-box;
+        white-space: nowrap;
       }
       .aggro-control label {
         font-size: 0.68rem;
         font-weight: 700;
         color: var(--muted);
         cursor: pointer;
+        flex: 0 0 auto;
       }
       .aggro-control input[type="range"] {
-        width: 72px;
+        flex: 1 1 auto;
+        width: auto;
+        min-width: 120px;
         height: 18px;
         margin: 0;
         accent-color: var(--info);
@@ -328,6 +378,18 @@
         font-variant-numeric: tabular-nums;
         color: var(--info);
         text-align: right;
+        flex: 0 0 auto;
+      }
+      /* 电脑端隐藏副文案，悬停看 title；手机端再展开 */
+      .aggro-hint {
+        display: none;
+        font-size: 0.58rem;
+        font-weight: 500;
+        color: var(--muted);
+        line-height: 1.25;
+        padding: 0 1px;
+        opacity: 0.9;
+        white-space: nowrap;
       }
       .adv-cell {
         display: flex;
@@ -1057,95 +1119,145 @@
         .topbar {
           flex-direction: column;
           align-items: stretch;
-          gap: 8px;
+          gap: 6px;
         }
         .topbar h1 {
           font-size: 0.95rem;
           text-align: center;
         }
 
-        /* 金额区：单条控件，去掉套盒感 */
+        /* 手机：①金额 ②激进 ③模式+刷新 — 两张扁卡同高同风格 */
         .amount-wrap {
+          order: 0;
+          width: 100%;
           flex-direction: column;
-          flex-wrap: nowrap;
           align-items: stretch;
-          gap: 6px;
-          background: transparent;
-          border: none;
-          border-radius: 0;
-          padding: 0;
+          gap: 1px;
+          box-sizing: border-box;
+          padding: 3px 6px 3px;
+          border: 1px solid var(--border);
+          border-radius: 8px;
+          background: var(--surface);
         }
         .amount-stepper {
           width: 100%;
-          height: auto;
-          min-height: 46px;
+          height: 24px;
+          min-height: 24px;
+          border: none;
+          border-radius: 0;
+          padding: 0;
+          background: transparent;
+          overflow: visible;
+        }
+        .amount-stepper-main {
+          width: 100%;
+          height: 100%;
+          min-height: 0;
           justify-content: space-between;
-          gap: 0;
-          background: var(--surface);
-          border: 1px solid var(--border);
-          border-radius: 10px;
-          padding: 3px;
-          overflow: hidden;
         }
         .amount-step {
-          width: 42px;
-          height: 40px;
-          font-size: 1.25rem;
-          background: transparent;
-          border: none;
-          border-radius: 8px;
-          color: var(--muted);
+          width: 28px;
+          height: 100%;
+          font-size: 0.95rem;
+          border-radius: 6px;
         }
         .amount-step:active {
           background: rgba(59, 130, 246, 0.18);
-          border-color: transparent;
           color: var(--info);
         }
         .amount-field {
           flex: 1;
-          height: auto;
+          height: 100%;
           justify-content: center;
           min-width: 0;
-          background: transparent;
-          border: none;
-          border-radius: 0;
-          padding: 0 6px;
-        }
-        .amount-field:focus-within {
-          border-color: transparent;
+          padding: 0 2px;
         }
         .amount-prefix,
         .amount-suffix {
-          font-size: 0.72rem;
+          font-size: 0.62rem;
         }
         .amount-wrap input {
           width: 7.5em;
           max-width: 42vw;
-          height: auto;
-          font-size: 1.05rem;
-          padding: 8px 2px;
+          height: 100%;
+          min-height: 0;
+          font-size: 0.86rem;
+          line-height: 1;
+          padding: 0 2px;
           text-align: center;
         }
-        .amount-live {
+        .topbar-controls {
+          display: flex;
+          order: 1;
           width: 100%;
-          text-align: center;
-          font-size: 0.7rem;
-          font-weight: 500;
-          color: var(--muted);
+          flex: none;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 6px;
+        }
+        .aggro-wrap {
+          order: 1;
+          flex: 1 1 100%;
+          flex-direction: column;
+          align-items: stretch;
+          width: 100%;
           min-width: 0;
+          max-width: none;
+          height: auto;
+          gap: 1px;
+          padding: 3px 10px 3px;
+          border-radius: 8px;
+          overflow: visible;
+        }
+        .aggro-control {
+          width: 100%;
+          height: 24px;
+          min-height: 24px;
+          gap: 8px;
+        }
+        .aggro-control input[type="range"] {
+          min-width: 0;
+          height: 18px;
+        }
+        .aggro-hint {
+          display: block;
+          font-size: 0.56rem;
+          line-height: 1.15;
+          text-align: center;
           white-space: normal;
           letter-spacing: 0.01em;
+          opacity: 0.85;
         }
-        .amount-live.empty {
+        .mode-toggle {
+          order: 2;
+          flex: 0 0 auto;
+        }
+        .topbar-meta {
+          order: 2;
+          margin-left: auto;
+          flex-wrap: nowrap;
+          gap: 6px;
+        }
+        .quote-status {
           font-size: 0.68rem;
         }
-
-        .topbar-right {
-          margin-left: 0;
+        /* 说明收进金额卡内，与激进 hint 同款 */
+        .amount-live {
           width: 100%;
-          justify-content: space-between;
-          align-items: center;
-          gap: 8px;
+          height: auto;
+          justify-content: center;
+          text-align: center;
+          padding: 0 2px;
+          border: none;
+          border-radius: 0;
+          background: transparent;
+          font-size: 0.56rem;
+          line-height: 1.15;
+          letter-spacing: 0.01em;
+          opacity: 0.85;
+        }
+        .amount-live.empty {
+          font-size: 0.56rem;
         }
 
         .btn {
@@ -1156,15 +1268,15 @@
         }
         .mode-toggle,
         .btn-refresh {
-          height: 34px;
-          min-height: 34px;
+          height: 30px;
+          min-height: 30px;
         }
         .btn-refresh {
           flex: 0 0 auto;
           padding: 0 10px;
           font-size: 0.72rem;
-          min-width: 72px;
-          width: 72px;
+          min-width: 56px;
+          width: auto;
         }
         .mode-btn {
           padding: 0 10px;
@@ -1172,16 +1284,20 @@
           min-width: 72px;
           width: 72px;
         }
-        .aggro-control {
-          height: 34px;
-          padding: 0 6px;
-          gap: 4px;
+        .aggro-control label {
+          font-size: 0.68rem;
+          flex: 0 0 auto;
         }
         .aggro-control input[type="range"] {
-          width: 56px;
+          flex: 1 1 auto;
+          width: auto;
+          min-width: 0;
+          height: 18px;
         }
-        .aggro-control label {
-          font-size: 0.64rem;
+        .aggro-control .aggro-val {
+          font-size: 0.72rem;
+          min-width: 1.6em;
+          flex: 0 0 auto;
         }
 
         /* 三组概览：手机端各占一行四列，减少纵向滚动 */
@@ -1444,39 +1560,41 @@
       <div class="topbar">
         <div class="amount-wrap">
           <div class="amount-stepper">
-            <button
-              type="button"
-              class="amount-step"
-              id="amountMinus"
-              aria-label="减少1000"
-            >
-              −
-            </button>
-            <div class="amount-field">
-              <span class="amount-prefix">¥</span>
-              <input
-                type="text"
-                id="totalAmount"
-                inputmode="numeric"
-                value=""
-                autocomplete="off"
-              />
-              <span class="amount-suffix">元</span>
+            <div class="amount-stepper-main">
+              <button
+                type="button"
+                class="amount-step"
+                id="amountMinus"
+                aria-label="减少1000"
+              >
+                −
+              </button>
+              <div class="amount-field">
+                <span class="amount-prefix">¥</span>
+                <input
+                  type="text"
+                  id="totalAmount"
+                  inputmode="numeric"
+                  value=""
+                  autocomplete="off"
+                />
+                <span class="amount-suffix">元</span>
+              </div>
+              <button
+                type="button"
+                class="amount-step"
+                id="amountPlus"
+                aria-label="增加1000"
+              >
+                +
+              </button>
             </div>
-            <button
-              type="button"
-              class="amount-step"
-              id="amountPlus"
-              aria-label="增加1000"
-            >
-              +
-            </button>
           </div>
           <div class="amount-live" id="amountLive">
             12.00 万 · ¥120,000 · 6位数
           </div>
         </div>
-        <div class="topbar-right">
+        <div class="topbar-controls">
           <div
             class="mode-toggle"
             id="modeToggle"
@@ -1491,20 +1609,25 @@
             </button>
           </div>
           <div
-            class="aggro-control"
-            id="aggroControl"
-            title="仅影响估值配仓买多少；QDII溢价>5%仍一律暂停，不受此分数影响"
+            class="aggro-wrap"
+            id="aggroWrap"
+            title="40 基准 · 50–60 偏多买 · 不影响溢价停买；仅影响估值配仓买多少，QDII溢价>5%仍一律暂停"
           >
-            <label for="aggroScore">激进</label>
-            <input
-              type="range"
-              id="aggroScore"
-              min="1"
-              max="100"
-              value="40"
-              aria-label="激进分数"
-            />
-            <span class="aggro-val" id="aggroScoreVal">40</span>
+            <div class="aggro-control" id="aggroControl">
+              <label for="aggroScore">激进</label>
+              <input
+                type="range"
+                id="aggroScore"
+                min="1"
+                max="100"
+                value="40"
+                aria-label="激进分数"
+              />
+              <span class="aggro-val" id="aggroScoreVal">40</span>
+            </div>
+            <div class="aggro-hint">
+              40 基准 · 50–60 偏多买 · 不影响溢价停买
+            </div>
           </div>
           <div class="topbar-meta">
             <div class="quote-status">
@@ -3992,7 +4115,7 @@
       function syncAggroUI() {
         const input = document.getElementById("aggroScore");
         const valEl = document.getElementById("aggroScoreVal");
-        const wrap = document.getElementById("aggroControl");
+        const wrap = document.getElementById("aggroWrap");
         if (input) input.value = String(aggroScore);
         if (valEl) valEl.textContent = String(aggroScore);
         if (wrap) wrap.classList.toggle("disabled", buyMode !== "build");
