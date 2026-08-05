@@ -193,22 +193,44 @@ def history_path(code: str) -> Path:
     return DATA_DIR / f"etf_{code}_history.json"
 
 
+def _history_note() -> str:
+    # 与正式 data/ 字段一致；本机兜底目录仅 note 文案区分
+    if DATA_DIR.resolve() == (REPO_ROOT / "data").resolve():
+        return (
+            "515450持仓加权近似·标普大盘红利低波50；非官方指数点位。"
+            "正式历史由 Cloudflare Worker 交易日 22:08/23:08 采集推送。"
+        )
+    return (
+        "515450持仓加权近似·标普大盘红利低波50；非官方指数点位。"
+        "本机 magic 兜底（17:08/17:28），与正式 data/ 隔离，不进 git。"
+    )
+
+
 def load_history(code: str) -> dict:
     path = history_path(code)
     if not path.exists():
-        return {
-            "code": code,
-            "note": "515450持仓加权近似·标普大盘红利低波50；非官方指数点位",
-            "points": [],
-        }
+        return {"code": code, "note": _history_note(), "points": []}
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        hist = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
-        return {"code": code, "points": []}
+        return {"code": code, "note": _history_note(), "points": []}
+    hist["code"] = code
+    hist["note"] = hist.get("note") or _history_note()
+    hist.pop("updated_at", None)  # 旧格式兼容：改用各点 collected_at
+    points = hist.get("points") or []
+    if not isinstance(points, list):
+        points = []
+    hist["points"] = points
+    return hist
 
 
 def save_history(code: str, hist: dict) -> None:
     path = history_path(code)
+    hist = {
+        "code": code,
+        "note": hist.get("note") or _history_note(),
+        "points": hist.get("points") or [],
+    }
     path.write_text(
         json.dumps(hist, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
     )
@@ -216,20 +238,29 @@ def save_history(code: str, hist: dict) -> None:
 
 def append_history_point(code: str, point: dict) -> dict:
     hist = load_history(code)
-    points = hist.setdefault("points", [])
+    points = list(hist.get("points") or [])
     d = point["date"]
     now = datetime.now().isoformat(timespec="seconds")
     if not point.get("collected_at"):
         point = {**point, "collected_at": now}
+    # 与正式历史同一字段：date/pe/pb/yeild/yield_pct/coverage_pct/n/collected_at
+    point = {
+        "date": point["date"],
+        "pe": point.get("pe"),
+        "pb": point.get("pb"),
+        "yeild": point.get("yeild"),
+        "yield_pct": point.get("yield_pct"),
+        "coverage_pct": point.get("coverage_pct"),
+        "n": point.get("n"),
+        "collected_at": point["collected_at"],
+    }
     points = [p for p in points if p.get("date") != d]
     points.append(point)
     points.sort(key=lambda p: p.get("date") or "")
-    # 保留约 30 年交易日
     if len(points) > MAX_HISTORY_DAYS:
         points = points[-MAX_HISTORY_DAYS:]
     hist["points"] = points
-    hist["code"] = code
-    hist.pop("updated_at", None)  # 改用各点 collected_at
+    hist["note"] = _history_note()
     save_history(code, hist)
     return hist
 
