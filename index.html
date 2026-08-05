@@ -292,6 +292,43 @@
       .mode-btn:hover:not(.active) {
         color: var(--text);
       }
+      .aggro-control {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        height: 32px;
+        padding: 0 8px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface);
+        box-sizing: border-box;
+        white-space: nowrap;
+      }
+      .aggro-control.disabled {
+        opacity: 0.45;
+        pointer-events: none;
+      }
+      .aggro-control label {
+        font-size: 0.68rem;
+        font-weight: 700;
+        color: var(--muted);
+        cursor: pointer;
+      }
+      .aggro-control input[type="range"] {
+        width: 72px;
+        height: 18px;
+        margin: 0;
+        accent-color: var(--info);
+        cursor: pointer;
+      }
+      .aggro-control .aggro-val {
+        min-width: 1.6em;
+        font-size: 0.72rem;
+        font-weight: 800;
+        font-variant-numeric: tabular-nums;
+        color: var(--info);
+        text-align: right;
+      }
       .adv-cell {
         display: flex;
         flex-direction: column;
@@ -1135,6 +1172,17 @@
           min-width: 72px;
           width: 72px;
         }
+        .aggro-control {
+          height: 34px;
+          padding: 0 6px;
+          gap: 4px;
+        }
+        .aggro-control input[type="range"] {
+          width: 56px;
+        }
+        .aggro-control label {
+          font-size: 0.64rem;
+        }
 
         /* 三组概览：手机端各占一行四列，减少纵向滚动 */
         .summary-bar {
@@ -1442,6 +1490,22 @@
               总额配仓
             </button>
           </div>
+          <div
+            class="aggro-control"
+            id="aggroControl"
+            title="仅影响估值配仓买多少；QDII溢价>5%仍一律暂停，不受此分数影响"
+          >
+            <label for="aggroScore">激进</label>
+            <input
+              type="range"
+              id="aggroScore"
+              min="1"
+              max="100"
+              value="40"
+              aria-label="激进分数"
+            />
+            <span class="aggro-val" id="aggroScoreVal">40</span>
+          </div>
           <div class="topbar-meta">
             <div class="quote-status">
               <span class="live-dot" id="liveDot"></span>
@@ -1696,8 +1760,11 @@
       const HOLDINGS_KEY = "magic_holdings";
       const AMOUNT_KEY = "magic_amount";
       const MODE_KEY = "magic_buy_mode";
+      const AGGRO_KEY = "magic_aggro_score";
+      const AGGRO_DEFAULT = 40; // 与当前部署曲线对齐；1保守–100激进
       const REFRESH_MS = 30000;
       let buyMode = "build"; // build=估值配仓 · dca=总额配仓
+      let aggroScore = AGGRO_DEFAULT;
       let fetching = false;
       let valMap = {};
       let valDate = "";
@@ -1719,8 +1786,7 @@
       const FX_REF_HIGH = 7.4;
 
       /* 估值阈值集中配置（买入阶梯 / 部署系数 / 品种覆盖规则） */
-      /* 激进分目标（1保守–100激进）：纳指~40 · 标普~42 · 红利~47 · 国债~53
-       * 纳指：warnCap 0.92→0.55、rich 99→92；标普暂停档 96→92（部署/warnCap 不变，激进分仍≈42） */
+      /* 顶栏「激进」滑条默认 40≈下列基准曲线；硬停（含溢价>5%）永不被滑条放松 */
       const VAL = {
         cheap: 30,
         normal: 50,
@@ -3466,13 +3532,51 @@
         return deployScore;
       }
 
+      function clampAggro(n) {
+        const x = Number(n);
+        if (!Number.isFinite(x)) return AGGRO_DEFAULT;
+        return Math.max(1, Math.min(100, Math.round(x)));
+      }
+
+      /** 相对默认 40：负=更保守，正=更激进。硬停逻辑不走这里。 */
+      function aggroDelta() {
+        return (clampAggro(aggroScore) - AGGRO_DEFAULT) / 60;
+      }
+
+      /** 按激进分缩放部署参数；不改 hardStop / level===stop */
+      function deployCfgFor(method) {
+        const base = VAL.deploy[method] || {};
+        const d = aggroDelta();
+        const cheap0 = base.cheap != null ? base.cheap : BUILD_CHEAP_PCT;
+        const rich0 = base.rich != null ? base.rich : BUILD_RICH_PCT;
+        const w0 = base.warnCap != null ? base.warnCap : VAL.warnCap;
+        /* 抬高 cheap / 略抬 rich → 同样分位下更容易买满；压低则更保守 */
+        let cheap = cheap0 + d * 10;
+        let rich = rich0 + d * 4;
+        cheap = Math.max(8, Math.min(55, cheap));
+        rich = Math.max(cheap + 20, Math.min(99, rich));
+        let warnCap = w0 * (1 + d * 0.35);
+        warnCap = Math.max(0.2, Math.min(0.92, warnCap));
+        let peakCap = base.peakCap;
+        if (peakCap != null) {
+          peakCap = Math.max(0.55, Math.min(0.95, peakCap * (1 + d * 0.2)));
+        }
+        return {
+          ...base,
+          cheap,
+          rich,
+          warnCap,
+          peakCap,
+        };
+      }
+
       /* CAPE-conditional：余弦平滑；各品种独立 cheap/rich/warnCap */
       function buildDeployFactor(sig, method) {
         if (!sig || sig.level === "na" || sig.action === "暂无数据") return 0;
-        /* 暂停 / 溢价硬停：一律不建议买 */
+        /* 暂停 / 溢价硬停：一律不建议买（激进分不可放松） */
         if (sig.hardStop || sig.level === "stop") return 0;
 
-        const cfg = VAL.deploy[method] || {};
+        const cfg = deployCfgFor(method);
         /* 国债非谨慎：压舱满配 */
         if (
           method === "bond" &&
@@ -3483,9 +3587,9 @@
 
         const score = buildDeployScore(sig, method);
         if (score == null) return 0;
-        const cheap = cfg.cheap != null ? cfg.cheap : BUILD_CHEAP_PCT;
-        const rich = cfg.rich != null ? cfg.rich : BUILD_RICH_PCT;
-        const wcap = cfg.warnCap != null ? cfg.warnCap : VAL.warnCap;
+        const cheap = cfg.cheap;
+        const rich = cfg.rich;
+        const wcap = cfg.warnCap;
         let factor;
         if (score <= cheap) factor = 1;
         else if (score >= rich) factor = 0;
@@ -3493,7 +3597,7 @@
           const t = (score - cheap) / (rich - cheap);
           factor = 0.5 * (1 + Math.cos(Math.PI * t));
         }
-        /* 红利：便宜期不全仓，避免长期均值偏激进；中高分位不受 scoreBias 误伤 */
+        /* 红利：便宜期不全仓；peakCap 可随激进分略抬，仍有上限 */
         if (cfg.peakCap != null) factor = Math.min(factor, cfg.peakCap);
         if (sig.level === "warn") factor = Math.min(factor, wcap);
         return factor;
@@ -3885,12 +3989,39 @@
         }
       }
 
+      function syncAggroUI() {
+        const input = document.getElementById("aggroScore");
+        const valEl = document.getElementById("aggroScoreVal");
+        const wrap = document.getElementById("aggroControl");
+        if (input) input.value = String(aggroScore);
+        if (valEl) valEl.textContent = String(aggroScore);
+        if (wrap) wrap.classList.toggle("disabled", buyMode !== "build");
+      }
+
+      function loadAggroScore() {
+        try {
+          const v = localStorage.getItem(AGGRO_KEY);
+          if (v != null && v !== "") aggroScore = clampAggro(v);
+        } catch (_) {}
+        syncAggroUI();
+      }
+
+      function setAggroScore(n, recalculate = true) {
+        aggroScore = clampAggro(n);
+        try {
+          localStorage.setItem(AGGRO_KEY, String(aggroScore));
+        } catch (_) {}
+        syncAggroUI();
+        if (recalculate && buyMode === "build") calculate();
+      }
+
       function loadBuyMode() {
         try {
           const v = localStorage.getItem(MODE_KEY);
           if (v === "dca" || v === "build") buyMode = v;
         } catch (_) {}
         syncModeUI();
+        syncAggroUI();
       }
 
       function setBuyMode(mode) {
@@ -3900,6 +4031,7 @@
           localStorage.setItem(MODE_KEY, buyMode);
         } catch (_) {}
         syncModeUI();
+        syncAggroUI();
         calculate();
       }
 
@@ -5088,6 +5220,7 @@
       applyTableColWidths();
       applyMacroCache();
       loadBuyMode();
+      loadAggroScore();
       loadAmount();
       initTable();
       updateAmountLive();
@@ -5106,6 +5239,13 @@
       document.querySelectorAll("#modeToggle .mode-btn").forEach((btn) => {
         btn.addEventListener("click", () => setBuyMode(btn.dataset.mode));
       });
+
+      const aggroInput = document.getElementById("aggroScore");
+      if (aggroInput) {
+        aggroInput.addEventListener("input", (e) => {
+          setAggroScore(e.target.value, true);
+        });
+      }
 
       document
         .getElementById("amountMinus")
