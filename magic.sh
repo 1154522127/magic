@@ -43,7 +43,7 @@ start_etf_auto() {
   chmod +x "$ROOT/scripts/etf_history_auto.sh" 2>/dev/null || true
   nohup "$ROOT/scripts/etf_history_auto.sh" >>"$AUTO_LOG" 2>&1 &
   echo $! >"$AUTO_PID_FILE"
-  echo "✓ 515450 本机兜底：17:08 / 17:28 → proxy/data/；正式历史 Cloudflare 22:08 / 23:08"
+  echo "✓ 515450 本机兜底：17:08 / 17:28 → proxy/data/；正式历史 Cloudflare 22:08–23:38 共 4 次"
 }
 
 start_proxy() {
@@ -109,7 +109,7 @@ case "$cmd" in
     print_phone_hint
     echo ""
     echo "✓ 电脑已打开（估值应显示 ·蛋卷，否则点刷新）"
-    echo "⏱ 正式历史：Cloudflare 22:08/23:08；本机兜底 17:08/17:28 写入 proxy/data/（不进 git）"
+    echo "⏱ 正式历史：Cloudflare 22:08/22:38/23:08/23:38；本机兜底 17:08/17:28 → proxy/data/"
     echo "⚠ 按回车会停止服务，手机也将无法访问"
     echo ""
     read -r -p "按回车停止代理并关闭此窗口…" _

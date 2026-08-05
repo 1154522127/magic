@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # magic 运行期间：交易日 17:08、17:28 各尝试一次（本机兜底）。
 # 写入 proxy/data/（不进 git），与正式 data/etf_*_history.json 隔离。
-# 正式历史仅由 Cloudflare Worker（22:08 / 23:08）采集推送。
+# 正式历史仅由 Cloudflare Worker（22:08 / 22:38 / 23:08 / 23:38）采集推送。
 set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -74,7 +74,7 @@ run_collect() {
   fi
 }
 
-log "本机兜底已启动（17:08/17:28 → proxy/data/；正式历史 Cloudflare 22:08/23:08）"
+log "本机兜底已启动（17:08/17:28 → proxy/data/；正式历史 Cloudflare 22:08–23:38×4）"
 while true; do
   if should_collect_now && ! already_done_today; then
     run_collect || true

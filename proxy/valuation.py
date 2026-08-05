@@ -198,7 +198,7 @@ def _history_note() -> str:
     if DATA_DIR.resolve() == (REPO_ROOT / "data").resolve():
         return (
             "515450持仓加权近似·标普大盘红利低波50；非官方指数点位。"
-            "正式历史由 Cloudflare Worker 交易日 22:08/23:08 采集推送。"
+            "正式历史由 Cloudflare Worker 交易日 22:08/22:38/23:08/23:38 采集推送。"
         )
     return (
         "515450持仓加权近似·标普大盘红利低波50；非官方指数点位。"

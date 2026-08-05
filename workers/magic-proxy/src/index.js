@@ -7,7 +7,7 @@
  * GET /etf_yield?code=515450
  * GET /etf_history?code=515450
  * GET /?url=https://... 兼容旧版白名单转发
- * Cron: 北京时间工作日 22:08 / 23:08 → KV + 推 GitHub
+ * Cron: 北京时间工作日 22:08 / 22:38 / 23:08 / 23:38 → KV + 推 GitHub
  */
 
 const UA =
@@ -519,7 +519,7 @@ export default {
           "/etf_fundamentals?code=515450",
           "/etf_history?code=515450",
         ],
-        crons_beijing: ["22:08", "23:08"],
+        crons_beijing: ["22:08", "22:38", "23:08", "23:38"],
       });
     }
 
