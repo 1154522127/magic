@@ -9,13 +9,15 @@
   /etf_yield?code=515450  → 兼容旧接口（股息）
   /etf_fundamentals?code=515450 → 持仓加权 PE/PB/股息 + 自建历史分位
 
-历史写入 data/etf_*_history.json；主路径 Cloudflare Worker 定时采集推送，本机 magic 17:08/17:28 兜底。
+正式历史 data/etf_*_history.json 仅由 Cloudflare 写入；
+本机 magic 兜底写入 proxy/data/（gitignore，不进仓库）。
 分位样本 < MIN_HISTORY_DAYS 时 percentile_ready=false，前端继续用蛋卷代理分位。
 """
 
 from __future__ import annotations
 
 import json
+import os
 import re
 from datetime import date, datetime
 from http.server import BaseHTTPRequestHandler, HTTPServer
@@ -45,8 +47,8 @@ CORS = {
 
 ROOT = Path(__file__).resolve().parent
 REPO_ROOT = ROOT.parent
-# 提交到 git / GitHub Pages 的公开历史（手机端直接 fetch）
-DATA_DIR = REPO_ROOT / "data"
+# 正式历史在仓库 data/；本机兜底可通过 ETF_HISTORY_DIR 指到 proxy/data/
+DATA_DIR = Path(os.environ["ETF_HISTORY_DIR"]) if os.environ.get("ETF_HISTORY_DIR") else (REPO_ROOT / "data")
 MIN_HISTORY_DAYS = 60  # 满 60 个交易日样本后启用自建分位
 MAX_HISTORY_DAYS = 30 * 252  # 约 30 年交易日；单点很小，全量约 1–2MB
 
@@ -394,16 +396,14 @@ class Handler(BaseHTTPRequestHandler):
             if not re.fullmatch(r"\d{6}", code):
                 send_json(self, 400, {"error": "invalid code"})
                 return
-            # 页面刷新默认不落盘，避免盘中把「今天」写成早盘值；
-            # 正式历史由 Cloudflare / 本机兜底写入；仅在 ?persist=1 时落盘。
-            persist = (qs.get("persist") or ["0"])[0] in ("1", "true", "yes")
+            # HTTP 一律不落盘；正式历史仅 Cloudflare，本机兜底走独立脚本目录
             try:
                 if path == "/etf_fundamentals":
                     send_json(
-                        self, 200, compute_etf_fundamentals(code, persist=persist)
+                        self, 200, compute_etf_fundamentals(code, persist=False)
                     )
                 else:
-                    send_json(self, 200, compute_etf_yield(code, persist=persist))
+                    send_json(self, 200, compute_etf_yield(code, persist=False))
             except Exception as e:
                 print(f"  {path} fail: {code} ({e})")
                 send_json(self, 502, {"error": str(e)})

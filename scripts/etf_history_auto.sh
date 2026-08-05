@@ -1,16 +1,21 @@
 #!/usr/bin/env bash
 # magic 运行期间：交易日 17:08、17:28 各尝试一次（本机兜底）。
-# 主路径为 Cloudflare Worker 定时采集并推送；当日已有点则跳过。
+# 写入 proxy/data/（不进 git），与正式 data/etf_*_history.json 隔离。
+# 正式历史仅由 Cloudflare Worker（22:08 / 23:08）采集推送。
 set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
 CODE="515450"
+# 与仓库正式历史隔离，避免和 Cloudflare 推送互相覆盖
+LOCAL_DATA="$ROOT/proxy/data"
 MARKER="$ROOT/.etf_${CODE}_auto_date"
-HISTORY="$ROOT/data/etf_${CODE}_history.json"
+HISTORY="$LOCAL_DATA/etf_${CODE}_history.json"
 LOG="$ROOT/.etf_auto.log"
 COLLECT="$ROOT/scripts/collect_etf_valuation.py"
-INTERVAL_SEC=30  # 半分钟检查一次，避免错过目标分钟
+INTERVAL_SEC=30
+
+mkdir -p "$LOCAL_DATA"
 
 log() {
   echo "[$(date '+%F %T')] $*" | tee -a "$LOG"
@@ -42,7 +47,6 @@ already_done_today() {
 }
 
 should_collect_now() {
-  # 周一–周五，17:08 或 17:28 那一分钟内
   local dow hm
   dow="$(date +%u)"
   hm="$(date +%H%M)"
@@ -61,16 +65,16 @@ run_collect() {
     echo "$today" >"$MARKER"
     return 0
   fi
-  log "→ 本机兜底采集 $CODE（17:08/17:28）…"
-  if python3 "$COLLECT" "$CODE" >>"$LOG" 2>&1; then
+  log "→ 本机兜底采集 $CODE → proxy/data/ …"
+  if ETF_HISTORY_DIR="$LOCAL_DATA" python3 "$COLLECT" "$CODE" >>"$LOG" 2>&1; then
     echo "$today" >"$MARKER"
-    log "✓ 已写入 data/etf_${CODE}_history.json（主路径仍为 Cloudflare）"
+    log "✓ 已写入 $HISTORY（正式历史仍由 Cloudflare 负责）"
   else
     log "✗ 采集失败，详见 $LOG"
   fi
 }
 
-log "本机兜底已启动（交易日 17:08、17:28；主路径 Cloudflare Worker）"
+log "本机兜底已启动（17:08/17:28 → proxy/data/；正式历史 Cloudflare 22:08/23:08）"
 while true; do
   if should_collect_now && ! already_done_today; then
     run_collect || true

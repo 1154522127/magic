@@ -3,11 +3,11 @@
  *
  * GET /                 健康检查
  * GET /valuation        蛋卷指数估值（CORS）
- * GET /etf_fundamentals?code=515450[&persist=1]
+ * GET /etf_fundamentals?code=515450  （只读，不落盘）
  * GET /etf_yield?code=515450
  * GET /etf_history?code=515450
  * GET /?url=https://... 兼容旧版白名单转发
- * Cron: 北京时间工作日 17:08 / 17:28 / 22:08 / 23:08
+ * Cron: 北京时间工作日 22:08 / 23:08 → KV + 推 GitHub
  */
 
 const UA =
@@ -518,9 +518,8 @@ export default {
           "/valuation",
           "/etf_fundamentals?code=515450",
           "/etf_history?code=515450",
-          "/collect?code=515450",
         ],
-        crons_beijing: ["17:08", "17:28", "22:08", "23:08"],
+        crons_beijing: ["22:08", "23:08"],
       });
     }
 
@@ -541,11 +540,9 @@ export default {
     if (path === "/etf_fundamentals" || path === "/etf_yield") {
       const code = (qs.get("code") || DEFAULT_CODE).trim();
       if (!/^\d{6}$/.test(code)) return json({ error: "invalid code" }, 400);
-      const persist = ["1", "true", "yes"].includes(
-        (qs.get("persist") || "0").toLowerCase(),
-      );
       try {
-        const full = await computeEtfFundamentals(env, code, persist);
+        // HTTP 只读；落盘仅由 scheduled cron 触发
+        const full = await computeEtfFundamentals(env, code, false);
         if (path === "/etf_yield") {
           return json({
             code: full.code,
@@ -568,13 +565,6 @@ export default {
       } catch (e) {
         return json({ error: String(e) }, 502);
       }
-    }
-
-    // 手动补采（浏览器打开即可）
-    if (path === "/collect") {
-      const code = (qs.get("code") || DEFAULT_CODE).trim();
-      if (!/^\d{6}$/.test(code)) return json({ error: "invalid code" }, 400);
-      return json(await collectIfNeeded(env, code));
     }
 
     return json({ error: "not found" }, 404);

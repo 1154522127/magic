@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
-"""采集 515450 持仓加权 PE/PB/股息，写入 data/ 供自建分位与 GitHub Pages。
+"""采集 515450 持仓加权 PE/PB/股息并落盘。
 
-主路径由 Cloudflare Worker 定时调用；本机 magic 在 17:08 / 17:28 兜底。
-也可手动：
-    python3 scripts/collect_etf_valuation.py
-    python3 scripts/collect_etf_valuation.py 515450
+供本机兜底脚本调用（ETF_HISTORY_DIR=proxy/data）；
+正式仓库历史由 Cloudflare Worker 写入。
 """
 
 from __future__ import annotations
@@ -49,9 +47,8 @@ def main() -> int:
     need = MIN_HISTORY_DAYS
     if data["percentile_ready"]:
         print(f"自建分位已启用（{n}≥{need}）")
-        print("手机要用同一份：git add data/ && commit && push")
     else:
-        print(f"样本积累中：{n}/{need}，此前前端仍用蛋卷中证红利低波分位")
+        print(f"样本积累中：{n}/{need}")
     return 0
 
 

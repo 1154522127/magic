@@ -7,7 +7,7 @@
 .etf_auto.log
 proxy/__pycache__/
 scripts/__pycache__/
-# 工作副本可留本地；正式历史在 data/etf_*_history.json（由 Actions 提交）
+# 本机兜底历史（与正式 data/ 隔离）；正式历史由 Cloudflare 推送
 proxy/data/
 # Cloudflare Worker 本地缓存
 .wrangler/
