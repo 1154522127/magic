@@ -2154,6 +2154,12 @@
         /danjuan(?:funds|app)\.com$/i.test(location.hostname);
 
       const LOCAL_VAL_PROXY = "http://127.0.0.1:8787";
+      /**
+       * Cloudflare Worker（绑自定义域名后写入 localStorage magic_val_proxy）。
+       * 国内直连 *.workers.dev 常被污染，故 Pages/手机默认不走它，避免卡住。
+       */
+      const CLOUD_VAL_PROXY =
+        "https://magic-proxy.xumufeng-magic.workers.dev";
       const LOCAL_PROXY_OFF_KEY = "magic_local_proxy_off";
 
       function valuationProxyUrl() {
@@ -2268,8 +2274,10 @@
         const proxy = valuationProxyUrl();
         if (proxy) {
           try {
+            const base = proxy.replace(/\/?valuation\/?$/, "").replace(/\/$/, "");
+            const url = `${base}/valuation`;
             const ms = isLocalProxy(proxy) ? 2000 : 8000;
-            const r = await fetchWithTimeout(proxy, ms);
+            const r = await fetchWithTimeout(url, ms);
             if (r.ok) {
               if (isLocalProxy(proxy)) markLocalProxyUp();
               return { ...parseValJson(await r.json()), source: "danjuan" };
@@ -2374,9 +2382,24 @@
           `./data/etf_${code}_history.json`,
           `data/etf_${code}_history.json`,
         ];
+        // 仅当手动配置了可访问的代理域名时，才尝试云端历史
+        try {
+          const custom = localStorage.getItem("magic_val_proxy")?.trim();
+          if (custom) {
+            const base = custom.replace(/\/?valuation\/?$/, "").replace(/\/$/, "");
+            urls.unshift(
+              `${base}/etf_history?code=${encodeURIComponent(code)}`,
+            );
+          }
+        } catch {
+          /* ignore */
+        }
         for (const url of urls) {
           try {
-            const r = await fetchWithTimeout(`${url}?_=${Date.now()}`, 6000);
+            const r = await fetchWithTimeout(
+              url.includes("?") ? `${url}&_=${Date.now()}` : `${url}?_=${Date.now()}`,
+              6000,
+            );
             if (!r.ok) continue;
             const j = await r.json();
             if (Array.isArray(j?.points)) return j;
@@ -2385,7 +2408,7 @@
         return null;
       }
 
-      /** 用仓库里的历史种子本地；GitHub Pages 手机端靠这个复用电脑采集结果 */
+      /** 用仓库/云端历史种子本地；Pages 手机端靠 git 里的 data/ */
       async function seedLocalEtfHistoryFromPublished(code) {
         const published = await fetchPublishedEtfHistory(code);
         if (!published?.points?.length) return loadLocalEtfHistory(code);
@@ -2515,6 +2538,7 @@
           if (isLocalProxy(proxy)) markLocalProxyUp();
           return j;
         } catch (_) {
+          if (isLocalProxy(proxy)) markLocalProxyDown();
           return null;
         }
       }

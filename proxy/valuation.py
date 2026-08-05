@@ -9,7 +9,7 @@
   /etf_yield?code=515450  → 兼容旧接口（股息）
   /etf_fundamentals?code=515450 → 持仓加权 PE/PB/股息 + 自建历史分位
 
-历史写入仓库 data/etf_*_history.json；本地 magic 交易日 17:08/17:28 采集，Actions 20:08–23:08 兜底推送，Pages 手机端可读。
+历史写入 data/etf_*_history.json；主路径 Cloudflare Worker 定时采集推送，本机 magic 17:08/17:28 兜底。
 分位样本 < MIN_HISTORY_DAYS 时 percentile_ready=false，前端继续用蛋卷代理分位。
 """
 

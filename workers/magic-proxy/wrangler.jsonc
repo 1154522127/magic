@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "magic-proxy",
+  "main": "src/index.js",
+  "compatibility_date": "2026-08-05",
+  "workers_dev": true,
+  "preview_urls": true,
+  "observability": {
+    "enabled": true
+  },
+  "kv_namespaces": [
+    {
+      "binding": "HISTORY",
+      "id": "2191a490b13c4ebe830c896198fea8a7"
+    }
+  ],
+  "triggers": {
+    // 北京时间工作日 17:08 / 17:28 / 22:08 / 23:08
+    "crons": ["8,28 9 * * 1-5", "8 14,15 * * 1-5"]
+  }
+}

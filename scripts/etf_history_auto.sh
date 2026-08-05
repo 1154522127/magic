@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
-# magic 运行期间：交易日 17:08、17:28 各尝试一次；
-# 当日 data/etf_*_history.json 已有今天的点则跳过，否则采集写入本地。
-# 由 magic.sh 后台拉起；GitHub Actions（20:08/21:08/22:08/23:08）为第二层保底。
+# magic 运行期间：交易日 17:08、17:28 各尝试一次（本机兜底）。
+# 主路径为 Cloudflare Worker 定时采集并推送；当日已有点则跳过。
 set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -62,16 +61,16 @@ run_collect() {
     echo "$today" >"$MARKER"
     return 0
   fi
-  log "→ 17:08/17:28 自动采集 $CODE …"
+  log "→ 本机兜底采集 $CODE（17:08/17:28）…"
   if python3 "$COLLECT" "$CODE" >>"$LOG" 2>&1; then
     echo "$today" >"$MARKER"
-    log "✓ 已写入 data/etf_${CODE}_history.json（夜间 Actions 仍会兜底推送）"
+    log "✓ 已写入 data/etf_${CODE}_history.json（主路径仍为 Cloudflare）"
   else
     log "✗ 采集失败，详见 $LOG"
   fi
 }
 
-log "自动采集守护已启动（交易日 17:08、17:28；当日已有数据则跳过；夜间 Actions 双层保底）"
+log "本机兜底已启动（交易日 17:08、17:28；主路径 Cloudflare Worker）"
 while true; do
   if should_collect_now && ! already_done_today; then
     run_collect || true

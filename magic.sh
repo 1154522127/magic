@@ -43,7 +43,7 @@ start_etf_auto() {
   chmod +x "$ROOT/scripts/etf_history_auto.sh" 2>/dev/null || true
   nohup "$ROOT/scripts/etf_history_auto.sh" >>"$AUTO_LOG" 2>&1 &
   echo $! >"$AUTO_PID_FILE"
-  echo "✓ 515450 自动采集：交易日 17:08 / 17:28 写入本地；Actions 20:08–23:08 兜底"
+  echo "✓ 515450 本地采集备用：17:08 / 17:28；主路径为 Cloudflare Worker 定时 + 云端代理"
 }
 
 start_proxy() {
@@ -109,7 +109,7 @@ case "$cmd" in
     print_phone_hint
     echo ""
     echo "✓ 电脑已打开（估值应显示 ·蛋卷，否则点刷新）"
-    echo "⏱ 保持此窗口开着：交易日 17:08 / 17:28 自动写入本地；Actions 20:08 / 21:08 / 22:08 / 23:08 兜底"
+    echo "⏱ 估值/历史主路径：Cloudflare（手机不用开电脑）；本机 17:08/17:28 仅作本地备份"
     echo "⚠ 按回车会停止服务，手机也将无法访问"
     echo ""
     read -r -p "按回车停止代理并关闭此窗口…" _

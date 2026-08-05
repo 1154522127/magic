@@ -1,0 +1,13 @@
+{
+  "name": "magic-proxy",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "deploy": "wrangler deploy",
+    "dev": "wrangler dev",
+    "seed": "wrangler kv key put --binding=HISTORY etf:515450 --path=../../data/etf_515450_history.json --remote"
+  },
+  "devDependencies": {
+    "wrangler": "^4.118.0"
+  }
+}
