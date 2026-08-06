@@ -187,32 +187,12 @@ function isFullHoldings(weightSum, n) {
   return weightSum >= FULL_HOLDINGS_WEIGHT_MIN && n >= FULL_HOLDINGS_COUNT_MIN;
 }
 
-async function resolveHoldings(code) {
-  const first = await fetchF10Page(code, "", "");
-  let years = first.years;
-  if (!years.length) {
-    const y = new Date().getFullYear();
-    years = [y, y - 1];
-  }
-  const candidates = [];
-  const seenDates = new Set();
-  for (const year of years.slice(0, 4)) {
-    const { tables } = await fetchF10Page(code, String(year), "");
-    for (const t of tables) {
-      const d = t.date || "";
-      if (seenDates.has(d)) continue;
-      seenDates.add(d);
-      candidates.push(t);
-    }
-  }
-  if (!candidates.length) {
-    return { holdings: await parseMobileHoldings(code), holdings_asof: null };
-  }
+function pickBestHoldingsTable(candidates) {
   const full = candidates.filter((t) =>
     isFullHoldings(t.weight_sum, t.rows.length),
   );
   const pool = full.length ? full : candidates;
-  const best = pool.reduce((a, b) => {
+  return pool.reduce((a, b) => {
     if ((b.date || "") !== (a.date || "")) {
       return (b.date || "") > (a.date || "") ? b : a;
     }
@@ -221,6 +201,42 @@ async function resolveHoldings(code) {
     }
     return b.rows.length > a.rows.length ? b : a;
   });
+}
+
+async function resolveHoldings(code) {
+  const first = await fetchF10Page(code, "", "");
+  const candidates = [];
+  const seenDates = new Set();
+  for (const t of first.tables) {
+    const d = t.date || "";
+    if (seenDates.has(d)) continue;
+    seenDates.add(d);
+    candidates.push(t);
+  }
+  // 默认页常已含最近全量年报/中报；够用则不再按年翻页，降低东财限流/超时风险
+  const alreadyFull = candidates.some((t) =>
+    isFullHoldings(t.weight_sum, t.rows.length),
+  );
+  if (!alreadyFull) {
+    let years = first.years;
+    if (!years.length) {
+      const y = new Date().getFullYear();
+      years = [y, y - 1];
+    }
+    for (const year of years.slice(0, 4)) {
+      const { tables } = await fetchF10Page(code, String(year), "");
+      for (const t of tables) {
+        const d = t.date || "";
+        if (seenDates.has(d)) continue;
+        seenDates.add(d);
+        candidates.push(t);
+      }
+    }
+  }
+  if (!candidates.length) {
+    return { holdings: await parseMobileHoldings(code), holdings_asof: null };
+  }
+  const best = pickBestHoldingsTable(candidates);
   let rows = [...best.rows].sort((a, b) => b.weight - a.weight);
   if (!isFullHoldings(best.weight_sum, rows.length)) {
     const have = new Set(rows.map((r) => r.code));
@@ -349,16 +365,38 @@ function percentileRank(values, current) {
   return vals.filter((v) => v <= current).length / vals.length;
 }
 
+function beijingWeekday(d = new Date()) {
+  const wd = new Intl.DateTimeFormat("en-US", {
+    timeZone: "Asia/Shanghai",
+    weekday: "short",
+  }).format(d);
+  return { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[wd];
+}
+
 async function isCnTradingDay(day) {
-  const url =
-    "https://push2his.eastmoney.com/api/qt/stock/kline/get" +
+  const path =
+    "/api/qt/stock/kline/get" +
     "?secid=1.000001&fields1=f1,f2,f3,f4,f5,f6" +
     "&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61" +
     "&klt=101&fqt=1&end=20500101&lmt=10";
-  const data = await httpJson(url, { Referer: "https://quote.eastmoney.com/" });
-  const klines = data?.data?.klines || [];
-  const dates = klines.map((row) => String(row).split(",", 1)[0].trim()).filter(Boolean);
-  return dates.includes(day);
+  const hosts = ["push2his.eastmoney.com", "push2delay.eastmoney.com"];
+  let lastErr;
+  for (const host of hosts) {
+    try {
+      const data = await httpJson(`https://${host}${path}`, {
+        Referer: "https://quote.eastmoney.com/",
+      });
+      const klines = data?.data?.klines || [];
+      if (!klines.length) continue;
+      const dates = klines
+        .map((row) => String(row).split(",", 1)[0].trim())
+        .filter(Boolean);
+      return dates.includes(day);
+    } catch (e) {
+      lastErr = e;
+    }
+  }
+  throw lastErr || new Error("trading-day check: empty klines");
 }
 
 async function computeEtfFundamentals(env, code, persist) {
@@ -553,7 +591,19 @@ async function collectIfNeeded(env, code = DEFAULT_CODE) {
       return { ok: true, skipped: "closed", date: today };
     }
   } catch (e) {
-    return { ok: false, error: `trading-day check: ${e}` };
+    // 东财偶发对 CF IP 超时/拒绝时，工作日夜晚仍继续采集，避免整晚 0 点
+    const dow = beijingWeekday();
+    if (dow >= 1 && dow <= 5) {
+      console.log(
+        JSON.stringify({
+          warn: "trading-day check failed, assume open on weekday",
+          date: today,
+          error: String(e),
+        }),
+      );
+    } else {
+      return { ok: false, error: `trading-day check: ${e}` };
+    }
   }
 
   const hist = await loadHistory(env, code);
