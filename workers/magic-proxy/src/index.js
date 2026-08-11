@@ -545,12 +545,22 @@ async function syncHistoryToGitHub(env, code, hist) {
     "Content-Type": "application/json",
   };
 
+  const text = JSON.stringify(hist, null, 2) + "\n";
+  const last = (hist.points || [])[hist.points.length - 1];
+  const date = last?.date || beijingParts().date;
+  const n = (hist.points || []).length;
+
   let sha;
   try {
     const cur = await fetch(api, { headers });
     if (cur.ok) {
       const j = await cur.json();
       sha = j.sha;
+      // 内容没变就别再 PUT：否则 4 次 cron 会刷出 4 个相同 commit
+      const remoteText = atob(String(j.content || "").replace(/\n/g, ""));
+      if (remoteText === text) {
+        return { synced: false, reason: "unchanged", date, n };
+      }
     } else if (cur.status !== 404) {
       return { synced: false, reason: `get ${cur.status}` };
     }
@@ -558,14 +568,10 @@ async function syncHistoryToGitHub(env, code, hist) {
     return { synced: false, reason: `get ${e}` };
   }
 
-  const text = JSON.stringify(hist, null, 2) + "\n";
   const bytes = new TextEncoder().encode(text);
   let bin = "";
   for (const b of bytes) bin += String.fromCharCode(b);
   const content = btoa(bin);
-  const last = (hist.points || [])[hist.points.length - 1];
-  const date = last?.date || beijingParts().date;
-  const n = (hist.points || []).length;
   const body = {
     message: `chore: update ${code} valuation history (${date}, n=${n})`,
     content,
@@ -579,8 +585,8 @@ async function syncHistoryToGitHub(env, code, hist) {
     body: JSON.stringify(body),
   });
   if (!put.ok) {
-    const text = await put.text();
-    return { synced: false, reason: `put ${put.status}: ${text.slice(0, 200)}` };
+    const errText = await put.text();
+    return { synced: false, reason: `put ${put.status}: ${errText.slice(0, 200)}` };
   }
   return { synced: true, date, n };
 }
