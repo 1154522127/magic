@@ -35,27 +35,31 @@ def beijing_today() -> str:
 
 def latest_sse_trade_dates(limit: int = 10) -> list[str]:
     """上证指数 000001 最近若干日 K 线日期（YYYY-MM-DD）。"""
-    url = (
-        "https://push2his.eastmoney.com/api/qt/stock/kline/get"
+    path = (
+        "/api/qt/stock/kline/get"
         "?secid=1.000001&fields1=f1,f2,f3,f4,f5,f6"
         "&fields2=f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61"
         "&klt=101&fqt=1&end=20500101"
         f"&lmt={limit}"
     )
-    req = Request(url, headers={"User-Agent": UA, "Referer": "https://quote.eastmoney.com/"})
+    hosts = ("push2his.eastmoney.com", "push2delay.eastmoney.com")
     last_err: Exception | None = None
-    for _ in range(3):
-        try:
-            data = json.loads(urlopen(req, timeout=20).read().decode("utf-8", "replace"))
-            klines = (data.get("data") or {}).get("klines") or []
-            out = []
-            for row in klines:
-                day = str(row).split(",", 1)[0].strip()
-                if day:
-                    out.append(day)
-            return out
-        except (URLError, HTTPError, TimeoutError, json.JSONDecodeError, OSError) as e:
-            last_err = e
+    for host in hosts:
+        url = f"https://{host}{path}"
+        req = Request(url, headers={"User-Agent": UA, "Referer": "https://quote.eastmoney.com/"})
+        for _ in range(2):
+            try:
+                data = json.loads(urlopen(req, timeout=20).read().decode("utf-8", "replace"))
+                klines = (data.get("data") or {}).get("klines") or []
+                out = []
+                for row in klines:
+                    day = str(row).split(",", 1)[0].strip()
+                    if day:
+                        out.append(day)
+                if out:
+                    return out
+            except (URLError, HTTPError, TimeoutError, json.JSONDecodeError, OSError) as e:
+                last_err = e
     raise RuntimeError(f"kline fetch failed: {last_err}")
 
 

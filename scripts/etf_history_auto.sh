@@ -53,17 +53,30 @@ should_collect_now() {
   [ "$dow" -le 5 ] && { [ "$hm" = "1708" ] || [ "$hm" = "1728" ]; }
 }
 
-is_trading_day() {
+# exit 0=交易日, 1=休市, 2=无法判断（东财超时等）
+trading_day_status() {
   python3 "$ROOT/scripts/is_cn_trading_day.py" >/dev/null 2>&1
+  return $?
 }
 
 run_collect() {
-  local today
+  local today status dow
   today="$(date +%F)"
-  if ! is_trading_day; then
+  trading_day_status
+  status=$?
+  if [ "$status" -eq 1 ]; then
     log "休市，跳过采集"
     echo "$today" >"$MARKER"
     return 0
+  fi
+  if [ "$status" -eq 2 ]; then
+    dow="$(date +%u)"
+    if [ "$dow" -ge 1 ] && [ "$dow" -le 5 ]; then
+      log "⚠ 交易日判断失败，工作日按开市继续采集"
+    else
+      log "⚠ 交易日判断失败且非工作日，跳过"
+      return 0
+    fi
   fi
   log "→ 本机兜底采集 $CODE → proxy/data/ …"
   if ETF_HISTORY_DIR="$LOCAL_DATA" python3 "$COLLECT" "$CODE" >>"$LOG" 2>&1; then

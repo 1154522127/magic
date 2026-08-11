@@ -374,6 +374,7 @@ function beijingWeekday(d = new Date()) {
   return { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }[wd];
 }
 
+/** @returns {"open"|"closed"} 查到 K 线时；查不到则抛错（unknown） */
 async function isCnTradingDay(day) {
   const path =
     "/api/qt/stock/kline/get" +
@@ -392,12 +393,24 @@ async function isCnTradingDay(day) {
       const dates = klines
         .map((row) => String(row).split(",", 1)[0].trim())
         .filter(Boolean);
-      return dates.includes(day);
+      return dates.includes(day) ? "open" : "closed";
     } catch (e) {
       lastErr = e;
     }
   }
   throw lastErr || new Error("trading-day check: empty klines");
+}
+
+/** 与本机兜底一致：查得到才认休市；查不到时周一到周五按开市继续 */
+function shouldCollectOnTradingDayStatus(status, err) {
+  if (status === "open") return { collect: true };
+  if (status === "closed") return { collect: false, reason: "closed" };
+  // unknown
+  const dow = beijingWeekday();
+  if (dow >= 1 && dow <= 5) {
+    return { collect: true, warn: String(err || "unknown") };
+  }
+  return { collect: false, reason: `trading-day check: ${err || "unknown"}` };
 }
 
 async function computeEtfFundamentals(env, code, persist) {
@@ -593,24 +606,28 @@ async function syncHistoryToGitHub(env, code, hist) {
 
 async function collectIfNeeded(env, code = DEFAULT_CODE) {
   const { date: today } = beijingParts();
+  let dayStatus = null;
+  let dayErr = null;
   try {
-    if (!(await isCnTradingDay(today))) {
+    dayStatus = await isCnTradingDay(today);
+  } catch (e) {
+    dayErr = e;
+  }
+  const gate = shouldCollectOnTradingDayStatus(dayStatus, dayErr);
+  if (gate.warn) {
+    console.log(
+      JSON.stringify({
+        warn: "trading-day check failed, assume open on weekday",
+        date: today,
+        error: gate.warn,
+      }),
+    );
+  }
+  if (!gate.collect) {
+    if (gate.reason === "closed") {
       return { ok: true, skipped: "closed", date: today };
     }
-  } catch (e) {
-    // 东财偶发对 CF IP 超时/拒绝时，工作日夜晚仍继续采集，避免整晚 0 点
-    const dow = beijingWeekday();
-    if (dow >= 1 && dow <= 5) {
-      console.log(
-        JSON.stringify({
-          warn: "trading-day check failed, assume open on weekday",
-          date: today,
-          error: String(e),
-        }),
-      );
-    } else {
-      return { ok: false, error: `trading-day check: ${e}` };
-    }
+    return { ok: false, error: gate.reason, date: today };
   }
 
   const hist = await loadHistory(env, code);
