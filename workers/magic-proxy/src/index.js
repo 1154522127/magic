@@ -545,6 +545,13 @@ async function proxyWhitelistedUrl(target, method) {
   return new Response(upstream.body, { status: upstream.status, headers: out });
 }
 
+function utf8ToBase64(text) {
+  const bytes = new TextEncoder().encode(text);
+  let bin = "";
+  for (const b of bytes) bin += String.fromCharCode(b);
+  return btoa(bin);
+}
+
 async function syncHistoryToGitHub(env, code, hist) {
   const token = env.GH_TOKEN;
   if (!token) return { synced: false, reason: "no GH_TOKEN" };
@@ -559,6 +566,7 @@ async function syncHistoryToGitHub(env, code, hist) {
   };
 
   const text = JSON.stringify(hist, null, 2) + "\n";
+  const content = utf8ToBase64(text);
   const last = (hist.points || [])[hist.points.length - 1];
   const date = last?.date || beijingParts().date;
   const n = (hist.points || []).length;
@@ -569,9 +577,9 @@ async function syncHistoryToGitHub(env, code, hist) {
     if (cur.ok) {
       const j = await cur.json();
       sha = j.sha;
-      // 内容没变就别再 PUT：否则 4 次 cron 会刷出 4 个相同 commit
-      const remoteText = atob(String(j.content || "").replace(/\n/g, ""));
-      if (remoteText === text) {
+      // 用 base64 比内容：atob 直接转字符串会把中文弄乱，导致永远判成“有变化”
+      const remoteB64 = String(j.content || "").replace(/\n/g, "");
+      if (remoteB64 && remoteB64 === content) {
         return { synced: false, reason: "unchanged", date, n };
       }
     } else if (cur.status !== 404) {
@@ -581,10 +589,6 @@ async function syncHistoryToGitHub(env, code, hist) {
     return { synced: false, reason: `get ${e}` };
   }
 
-  const bytes = new TextEncoder().encode(text);
-  let bin = "";
-  for (const b of bytes) bin += String.fromCharCode(b);
-  const content = btoa(bin);
   const body = {
     message: `chore: update ${code} valuation history (${date}, n=${n})`,
     content,
