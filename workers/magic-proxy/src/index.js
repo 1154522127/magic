@@ -565,11 +565,17 @@ async function syncHistoryToGitHub(env, code, hist) {
     "Content-Type": "application/json",
   };
 
-  const text = JSON.stringify(hist, null, 2) + "\n";
+  // 只序列化稳定字段，避免额外 key 导致误判“有变化”
+  const payload = {
+    code: hist.code || code,
+    note: hist.note || emptyHistory(code).note,
+    points: Array.isArray(hist.points) ? hist.points : [],
+  };
+  const text = JSON.stringify(payload, null, 2) + "\n";
   const content = utf8ToBase64(text);
-  const last = (hist.points || [])[hist.points.length - 1];
+  const last = payload.points[payload.points.length - 1];
   const date = last?.date || beijingParts().date;
-  const n = (hist.points || []).length;
+  const n = payload.points.length;
 
   let sha;
   try {

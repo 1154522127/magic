@@ -18,7 +18,8 @@ INTERVAL_SEC=30
 mkdir -p "$LOCAL_DATA"
 
 log() {
-  echo "[$(date '+%F %T')] $*" | tee -a "$LOG"
+  # 只打 stdout：magic.sh 已把本脚本 stdout 重定向到 .etf_auto.log，避免 tee 再写一份导致双行
+  echo "[$(date '+%F %T')] $*"
 }
 
 has_today_point() {
